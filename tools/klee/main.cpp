@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "klee/Config/Version.h"
+#include "klee/Debugger/KleeDebugger.h"
 #include "klee/ExecutionState.h"
 #include "klee/Expr.h"
 #include "klee/Internal/ADT/KTest.h"
@@ -1119,6 +1120,7 @@ static llvm::Module *linkWithUclibc(llvm::Module *mainModule, StringRef libDir) 
 #endif
 
 int main(int argc, char **argv, char **envp) {
+
   atexit(llvm_shutdown);  // Call llvm_shutdown() on exit.
 
   llvm::InitializeNativeTarget();
@@ -1307,6 +1309,7 @@ int main(int argc, char **argv, char **envp) {
   Interpreter *interpreter =
     theInterpreter = Interpreter::create(ctx, IOpts, handler);
   handler->setInterpreter(interpreter);
+  KDebugger *debugger = new KDebugger();
 
   for (int i=0; i<argc; i++) {
     handler->getInfoStream() << argv[i] << (i+1<argc ? " ":"\n");
@@ -1416,7 +1419,8 @@ int main(int argc, char **argv, char **envp) {
                    sys::StrError(errno).c_str());
       }
     }
-    interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp);
+    debugger->showPrompt();
+    interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp, debugger);
 
     while (!seeds.empty()) {
       kTest_free(seeds.back());
@@ -1492,6 +1496,7 @@ int main(int argc, char **argv, char **envp) {
   handler->getInfoStream() << stats.str();
 
   delete handler;
+  delete debugger;
 
   return 0;
 }

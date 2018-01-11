@@ -28,6 +28,7 @@ namespace klee {
 class ExecutionState;
 class Interpreter;
 class TreeStreamWriter;
+class KDebugger;
 
 class InterpreterHandler {
 public:
@@ -130,7 +131,8 @@ public:
   virtual void runFunctionAsMain(llvm::Function *f,
                                  int argc,
                                  char **argv,
-                                 char **envp) = 0;
+                                 char **envp,
+                                 KDebugger *debugger = NULL) = 0;
 
   /*** Runtime options ***/
 

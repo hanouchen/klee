@@ -86,6 +86,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
+#include <regex>
 
 #include <sys/mman.h>
 
@@ -2592,7 +2593,7 @@ void Executor::doDumpStates() {
   updateStates(0);
 }
 
-void Executor::run(ExecutionState &initialState) {
+void Executor::run(ExecutionState &initialState, KDebugger *debugger) {
   bindModuleConstants();
 
   // Delay init till now so that ticks don't accrue during
@@ -2679,6 +2680,10 @@ void Executor::run(ExecutionState &initialState) {
     ExecutionState &state = searcher->selectState();
     KInstruction *ki = state.pc;
     stepInstruction(state);
+
+    if (debugger) {
+      debugger->checkBreakpoint(ki);
+    }
 
     executeInstruction(state, ki);
     processTimers(&state, MaxInstructionTime);
@@ -3429,7 +3434,8 @@ void Executor::executeMakeSymbolic(ExecutionState &state,
 void Executor::runFunctionAsMain(Function *f,
 				 int argc,
 				 char **argv,
-				 char **envp) {
+				 char **envp,
+         KDebugger *debugger) {
   std::vector<ref<Expr> > arguments;
 
   // force deterministic initialization of memory objects
@@ -3519,7 +3525,7 @@ void Executor::runFunctionAsMain(Function *f,
 
   processTree = new PTree(state);
   state->ptreeNode = processTree->root;
-  run(*state);
+  run(*state, debugger);
   delete processTree;
   processTree = 0;
 

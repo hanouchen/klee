@@ -15,6 +15,7 @@
 #ifndef KLEE_EXECUTOR_H
 #define KLEE_EXECUTOR_H
 
+#include "klee/Debugger/KleeDebugger.h"
 #include "klee/ExecutionState.h"
 #include "klee/Interpreter.h"
 #include "klee/Internal/Module/Cell.h"
@@ -223,7 +224,7 @@ private:
   void printFileLine(ExecutionState &state, KInstruction *ki,
                      llvm::raw_ostream &file);
 
-  void run(ExecutionState &initialState);
+  void run(ExecutionState &initialState, KDebugger *debugger = NULL);
 
   // Given a concrete object in our [klee's] address space, add it to 
   // objects checked code can reference.
@@ -490,7 +491,8 @@ public:
   virtual void runFunctionAsMain(llvm::Function *f,
                                  int argc,
                                  char **argv,
-                                 char **envp);
+                                 char **envp,
+                                 KDebugger *debugger);
 
   /*** Runtime options ***/
   
