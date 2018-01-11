@@ -8,6 +8,10 @@
 
 namespace klee {
 
+namespace {
+const char * DEFAULT_PROMPT = "klee debugger, type h for help> ";
+}
+
 struct Breakpoint {
     std::string file;
     unsigned line;
@@ -25,7 +29,8 @@ struct Breakpoint {
 
 class KDebugger{
 public:
-    void showPrompt();
+    void showPrompt(const char *prompt = DEFAULT_PROMPT);
+    void showPromptAtBreakpoint(const Breakpoint &breakpoint);
     void checkBreakpoint(const KInstruction *ki);
     bool quitKlee();
     const std::set<Breakpoint> &breakpoints();

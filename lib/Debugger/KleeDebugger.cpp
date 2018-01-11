@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <iostream>
 #include <regex>
 #include <sstream>
@@ -13,20 +14,25 @@ namespace klee {
 namespace {
     const std::string QUIT = "q";
     const std::string RUN = "r";
+    const std::string CONTINUE = "c";
     const std::string LIST = "l";
     const std::string HELP = "h";
     const char BREAK = 'b';
-    const char * DEFAULT_PROMPT = "klee debugger, type h for help> ";
 }
 
 
-void KDebugger::showPrompt() {
+void KDebugger::showPrompt(const char *prompt) {
+    assert(prompt);
+
     char *line;
-    while((line = linenoise(DEFAULT_PROMPT)) != NULL) {
+    while((line = linenoise(prompt)) != NULL) {
         if (line == QUIT) {
             m_quitKlee = true;
             break;
+        } else if (line == CONTINUE) {
+            break;
         } else if (line == RUN) {
+            m_breakpoints.clear();
             break;
         } else if (line[0] == BREAK) {
             addBreakpointFromLine(line + 1);
@@ -36,12 +42,19 @@ void KDebugger::showPrompt() {
             printHelp();
         } else if (line[0] != '\0'){
             printf("Invalid command, type h to see list of commands"); 
+        } 
+        
+        if (line[0] != '\0') {
             linenoiseHistoryAdd(line);
         }
-
         linenoiseFree(line); 
     }
     return;
+}
+
+void KDebugger::showPromptAtBreakpoint(const Breakpoint &breakpoint) {
+    std::string prompt = breakpoint.file + ", line " + std::to_string((int)breakpoint.line) + "> ";
+    showPrompt(prompt.c_str());
 }
 
 void KDebugger::checkBreakpoint(const KInstruction *ki) {
@@ -53,7 +66,7 @@ void KDebugger::checkBreakpoint(const KInstruction *ki) {
     if (std::regex_search(ki->info->file.c_str(), matches, fileRegex)) {
       Breakpoint bp(matches[1].str(), ki->info->line);
       if (m_breakpoints.find(bp) != m_breakpoints.end()) {
-        showPrompt();
+        showPromptAtBreakpoint(bp);
       }
     }
 
@@ -68,10 +81,11 @@ bool KDebugger::quitKlee() {
 }
 
 void KDebugger::printHelp() {
-    klee_message("\n\tType r to continue execution.\n"
+    klee_message("\n\tType r to run the program.\n"
                  "\tType q to quit klee.\n"
-                 "\tType b <filename>:<linenumber> to add a breakpoint\n"
-                 "\tType l to list all the breakpoints set");
+                 "\tType c to continue until the next breakpoint.\n"
+                 "\tType b <filename>:<linenumber> to add a breakpoint.\n"
+                 "\tType l to list all the breakpoints set.");
 }
 
 void KDebugger::printBreakpoints() {
