@@ -120,6 +120,10 @@ namespace {
   OptExitOnError("exit-on-error",
               cl::desc("Exit if errors occur"));
 
+  cl::opt<bool>
+  UseDebugger("use-debugger",
+              cl::desc("Run klee with symbolic debugger"));
+
 
   enum LibcType {
     NoLibc, KleeLibc, UcLibc
@@ -1309,7 +1313,7 @@ int main(int argc, char **argv, char **envp) {
   Interpreter *interpreter =
     theInterpreter = Interpreter::create(ctx, IOpts, handler);
   handler->setInterpreter(interpreter);
-  KDebugger *debugger = new KDebugger();
+  KDebugger *debugger = UseDebugger ? new KDebugger() :  NULL;
 
   for (int i=0; i<argc; i++) {
     handler->getInfoStream() << argv[i] << (i+1<argc ? " ":"\n");
@@ -1419,7 +1423,9 @@ int main(int argc, char **argv, char **envp) {
                    sys::StrError(errno).c_str());
       }
     }
-    debugger->showPrompt();
+    if (debugger) {
+      debugger->showPrompt();
+    }
     interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp, debugger);
 
     while (!seeds.empty()) {
