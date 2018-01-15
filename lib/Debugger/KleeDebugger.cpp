@@ -23,6 +23,8 @@ namespace {
     const char BREAK = 'b';
 }
 
+KDebugger::KDebugger() : m_prevBp("", 0), m_currentState(NULL), m_breakpoints(), m_quitKlee(false) {}
+
 void KDebugger::showPrompt(const char *prompt) {
     assert(prompt);
 
@@ -71,7 +73,8 @@ void KDebugger::checkBreakpoint(const ExecutionState &state) {
     std::cmatch matches;
     if (std::regex_search(ki->info->file.c_str(), matches, fileRegex)) {
       Breakpoint bp(matches[1].str(), ki->info->line);
-      if (m_breakpoints.find(bp) != m_breakpoints.end()) {
+      if (m_prevBp != bp && m_breakpoints.find(bp) != m_breakpoints.end()) {
+        m_prevBp = bp;
         showPromptAtBreakpoint(bp);
       }
     }

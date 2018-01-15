@@ -24,12 +24,17 @@ struct Breakpoint {
     }
 
     bool operator==(const Breakpoint& rhs) const {
-        return file == file && line == line;
+        return file == rhs.file && line == rhs.line;
+    }
+
+    bool operator!=(const Breakpoint& rhs) const {
+        return !(*this == rhs);
     }
 };
 
 class KDebugger{
 public:
+    KDebugger();
     void showPrompt(const char *prompt = DEFAULT_PROMPT);
     void showPromptAtBreakpoint(const Breakpoint &breakpoint);
     void checkBreakpoint(const ExecutionState &state);
@@ -37,8 +42,17 @@ public:
     const std::set<Breakpoint> &breakpoints();
 
 private:
+    // The last breakpoint encountered, used to prevent stopping at the same source line
+    // multiple times (since one source line can correspond to multiple assembly lines)
+    Breakpoint m_prevBp;
+
+    // Execution state at the current breakpoint, initially null.
     const ExecutionState *m_currentState;
+
+    // Set of breakpoints set by the user
     std::set<Breakpoint> m_breakpoints;
+
+    // Not used
     bool m_quitKlee;
 
     void printHelp();
