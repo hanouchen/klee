@@ -4,6 +4,8 @@
 #include <sstream>
 #include <vector>
 
+#include "llvm/Support/raw_ostream.h"
+
 #include "klee/Debugger/KleeDebugger.h"
 #include "klee/Debugger/linenoise.h"
 #include "klee/Internal/Support/ErrorHandling.h"
@@ -17,9 +19,9 @@ namespace {
     const std::string CONTINUE = "c";
     const std::string LIST = "l";
     const std::string HELP = "h";
+    const std::string EXAMINE = "e";
     const char BREAK = 'b';
 }
-
 
 void KDebugger::showPrompt(const char *prompt) {
     assert(prompt);
@@ -40,6 +42,8 @@ void KDebugger::showPrompt(const char *prompt) {
             printBreakpoints();
         } else if (line == HELP) {
             printHelp();
+        } else if (line == EXAMINE) {
+            showExecutionStateInformation();
         } else if (line[0] != '\0'){
             printf("Invalid command, type h to see list of commands"); 
         } 
@@ -57,7 +61,9 @@ void KDebugger::showPromptAtBreakpoint(const Breakpoint &breakpoint) {
     showPrompt(prompt.c_str());
 }
 
-void KDebugger::checkBreakpoint(const KInstruction *ki) {
+void KDebugger::checkBreakpoint(const ExecutionState &state) {
+    auto ki = state.pc;
+    m_currentState = &state;
     if (!ki) {
         return;
     }
@@ -69,7 +75,6 @@ void KDebugger::checkBreakpoint(const KInstruction *ki) {
         showPromptAtBreakpoint(bp);
       }
     }
-
 }
 
 const std::set<Breakpoint> & KDebugger::breakpoints() {
@@ -81,11 +86,12 @@ bool KDebugger::quitKlee() {
 }
 
 void KDebugger::printHelp() {
-    klee_message("\n\tType r to run the program.\n"
-                 "\tType q to quit klee.\n"
-                 "\tType c to continue until the next breakpoint.\n"
-                 "\tType b <filename>:<linenumber> to add a breakpoint.\n"
-                 "\tType l to list all the breakpoints set.");
+    klee_message("\n  Type r to run the program.\n"
+                 "  Type q to quit klee.\n"
+                 "  Type c to continue until the next breakpoint.\n"
+                 "  Type b <filename>:<linenumber> to add a breakpoint.\n"
+                 "  Type e to when at a breakpoint show information about the current execution state.\n"
+                 "  Type l to list all the breakpoints set.");
 }
 
 void KDebugger::printBreakpoints() {
@@ -103,6 +109,19 @@ void KDebugger::addBreakpointFromLine(const char *line) {
         klee_message(res.second ? "Breakpoint set" : "Breakpoint already exist");
     } else {
         klee_message("Invalid breakpoint format");
+    }
+}
+
+void KDebugger::showExecutionStateInformation() {
+    if (m_currentState) {
+        std::string stackDump;
+        llvm::raw_string_ostream sostream(stackDump);
+        m_currentState->dumpStack(sostream);
+        stackDump = (sostream.str());
+        klee_message("Dumping stack");
+        klee_message(stackDump.c_str());
+    } else {
+        klee_message("Invalid execution state, no info to show.");
     }
 }
 

@@ -5,6 +5,7 @@
 #include <string>
 
 #include "klee/Internal/Module/KInstruction.h"
+#include "klee/ExecutionState.h"
 
 namespace klee {
 
@@ -31,17 +32,19 @@ class KDebugger{
 public:
     void showPrompt(const char *prompt = DEFAULT_PROMPT);
     void showPromptAtBreakpoint(const Breakpoint &breakpoint);
-    void checkBreakpoint(const KInstruction *ki);
+    void checkBreakpoint(const ExecutionState &state);
     bool quitKlee();
     const std::set<Breakpoint> &breakpoints();
 
 private:
+    const ExecutionState *m_currentState;
     std::set<Breakpoint> m_breakpoints;
     bool m_quitKlee;
 
     void printHelp();
     void printBreakpoints();
     void addBreakpointFromLine(const char *line);
+    void showExecutionStateInformation();
 };
 }
 #endif

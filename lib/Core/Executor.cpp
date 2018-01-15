@@ -2679,11 +2679,12 @@ void Executor::run(ExecutionState &initialState, KDebugger *debugger) {
   while (!states.empty() && !haltExecution) {
     ExecutionState &state = searcher->selectState();
     KInstruction *ki = state.pc;
+    if (debugger) {
+      debugger->checkBreakpoint(state);
+    }
+
     stepInstruction(state);
 
-    if (debugger) {
-      debugger->checkBreakpoint(ki);
-    }
 
     executeInstruction(state, ki);
     processTimers(&state, MaxInstructionTime);
