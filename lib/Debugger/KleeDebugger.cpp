@@ -6,6 +6,7 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include "klee/util/ExprPPrinter.h"
 #include "klee/Debugger/KleeDebugger.h"
 #include "klee/Debugger/linenoise.h"
 #include "klee/Internal/Support/ErrorHandling.h"
@@ -19,11 +20,13 @@ namespace {
     const std::string CONTINUE = "c";
     const std::string LIST = "l";
     const std::string HELP = "h";
-    const std::string EXAMINE = "e";
+    const std::string INFO = "info";
+    const std::string INFO_STACK = INFO + " stack";
+    const std::string INFO_CONSTRAINTS = INFO + " constraints";
     const char BREAK = 'b';
 }
 
-KDebugger::KDebugger() : m_prevBp("", 0), m_currentState(NULL), m_breakpoints(), m_quitKlee(false) {}
+KDebugger::KDebugger() : m_prevBp("", 0), m_currentState(NULL), m_breakpoints() {}
 
 void KDebugger::showPrompt(const char *prompt) {
     assert(prompt);
@@ -31,7 +34,6 @@ void KDebugger::showPrompt(const char *prompt) {
     char *line;
     while((line = linenoise(prompt)) != NULL) {
         if (line == QUIT) {
-            m_quitKlee = true;
             break;
         } else if (line == CONTINUE) {
             break;
@@ -44,10 +46,10 @@ void KDebugger::showPrompt(const char *prompt) {
             printBreakpoints();
         } else if (line == HELP) {
             printHelp();
-        } else if (line == EXAMINE) {
-            showExecutionStateInformation();
+        } else if (strlen(line) >= INFO.length() && INFO == std::string(line).substr(0, INFO.length())) {
+            printStateInfo(line);
         } else if (line[0] != '\0'){
-            printf("Invalid command, type h to see list of commands"); 
+            klee_message("Invalid command, type h to see list of commands"); 
         } 
         
         if (line[0] != '\0') {
@@ -84,16 +86,13 @@ const std::set<Breakpoint> & KDebugger::breakpoints() {
     return m_breakpoints;
 }
 
-bool KDebugger::quitKlee() {
-    return m_quitKlee;
-}
 
 void KDebugger::printHelp() {
     klee_message("\n  Type r to run the program.\n"
                  "  Type q to quit klee.\n"
                  "  Type c to continue until the next breakpoint.\n"
                  "  Type b <filename>:<linenumber> to add a breakpoint.\n"
-                 "  Type e to when at a breakpoint show information about the current execution state.\n"
+                 "  Type info [stack | constraints] to show information about the current execution state.\n"
                  "  Type l to list all the breakpoints set.");
 }
 
@@ -115,16 +114,37 @@ void KDebugger::addBreakpointFromLine(const char *line) {
     }
 }
 
-void KDebugger::showExecutionStateInformation() {
-    if (m_currentState) {
-        std::string stackDump;
-        llvm::raw_string_ostream sostream(stackDump);
-        m_currentState->dumpStack(sostream);
-        stackDump = (sostream.str());
-        klee_message("Dumping stack");
-        klee_message(stackDump.c_str());
-    } else {
+void KDebugger::printStack() {
+    llvm::outs().changeColor(llvm::raw_ostream::CYAN);
+    llvm::outs() << "KLEE:Stack dump:\n";
+    llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+    m_currentState->dumpStack(llvm::outs());
+}
+
+void KDebugger::printConstraints() {
+    llvm::outs().changeColor(llvm::raw_ostream::CYAN);
+    llvm::outs() << "KLEE:Constraints for current state:\n";
+    llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+    ExprPPrinter::printConstraints(llvm::outs(), m_currentState->constraints);
+}
+
+void KDebugger::printStateInfo(const char *line) {
+    if (!m_currentState) {
         klee_message("Invalid execution state, no info to show.");
+        return;
+    }
+
+    if (line == INFO) {
+        printStack();
+        llvm::outs() << "\n";
+        printConstraints();
+    } else if (line == INFO_STACK) {
+        printStack();
+    } else if (line == INFO_CONSTRAINTS) {
+        printConstraints();
+    } else {
+        klee_message("Unkown info argument");
+        return;
     }
 }
 

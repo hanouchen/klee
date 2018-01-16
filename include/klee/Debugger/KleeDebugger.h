@@ -52,13 +52,12 @@ private:
     // Set of breakpoints set by the user
     std::set<Breakpoint> m_breakpoints;
 
-    // Not used
-    bool m_quitKlee;
-
     void printHelp();
     void printBreakpoints();
     void addBreakpointFromLine(const char *line);
-    void showExecutionStateInformation();
+    void printStack();
+    void printConstraints();
+    void printStateInfo(const char *line);
 };
 }
 #endif
