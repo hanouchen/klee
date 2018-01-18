@@ -106,6 +106,8 @@ public:
   virtual const llvm::Module * 
   setModule(llvm::Module *module, 
             const ModuleOptions &opts) = 0;
+  // supply a debugger 
+  virtual void setDebugger(KDebugger *debugger) = 0;
 
   // supply a tree stream writer which the interpreter will use
   // to record the concrete path (as a stream of '0' and '1' bytes).
@@ -131,8 +133,7 @@ public:
   virtual void runFunctionAsMain(llvm::Function *f,
                                  int argc,
                                  char **argv,
-                                 char **envp,
-                                 KDebugger *debugger = NULL) = 0;
+                                 char **envp) = 0;
 
   /*** Runtime options ***/
 

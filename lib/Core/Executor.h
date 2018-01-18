@@ -123,6 +123,7 @@ private:
   KModule *kmodule;
   InterpreterHandler *interpreterHandler;
   Searcher *searcher;
+  KDebugger *debugger;
 
   ExternalDispatcher *externalDispatcher;
   TimingSolver *solver;
@@ -224,7 +225,7 @@ private:
   void printFileLine(ExecutionState &state, KInstruction *ki,
                      llvm::raw_ostream &file);
 
-  void run(ExecutionState &initialState, KDebugger *debugger = NULL);
+  void run(ExecutionState &initialState);
 
   // Given a concrete object in our [klee's] address space, add it to 
   // objects checked code can reference.
@@ -462,6 +463,10 @@ public:
     return *interpreterHandler;
   }
 
+  virtual void setDebugger(KDebugger *debugger) {
+    this->debugger = debugger;
+  }
+
   virtual void setPathWriter(TreeStreamWriter *tsw) {
     pathWriter = tsw;
   }
@@ -491,8 +496,7 @@ public:
   virtual void runFunctionAsMain(llvm::Function *f,
                                  int argc,
                                  char **argv,
-                                 char **envp,
-                                 KDebugger *debugger);
+                                 char **envp);
 
   /*** Runtime options ***/
   
@@ -505,6 +509,8 @@ public:
   }
 
   void prepareForEarlyExit();
+
+  KDebugger *getDebugger() { return debugger; }
 
   /*** State accessor methods ***/
 

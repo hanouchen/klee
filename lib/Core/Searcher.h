@@ -94,6 +94,26 @@ namespace klee {
     }
   };
 
+  class DebugSearcher : public Searcher {
+  public:
+    DebugSearcher() : states(), iter() {}
+    ExecutionState &selectState();
+    void update(ExecutionState *current,
+              const std::vector<ExecutionState *> &addedStates,
+              const std::vector<ExecutionState *> &removedStates);
+    bool empty();
+    void printName(llvm::raw_ostream &os) {
+      os << "DebugSearcher\n";
+    }
+    void setIter(const ExecutionState *state);
+    void nextIter();
+    ExecutionState *currentState();
+
+  private: 
+    std::vector<ExecutionState *> states;
+    std::vector<ExecutionState *>::iterator iter;
+  };
+
   class BFSSearcher : public Searcher {
     std::deque<ExecutionState*> states;
 

@@ -326,12 +326,12 @@ const char *Executor::TerminateReasonNames[] = {
 
 Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
     InterpreterHandler *ih)
-    : Interpreter(opts), kmodule(0), interpreterHandler(ih), searcher(0),
-      externalDispatcher(new ExternalDispatcher(ctx)), statsTracker(0),
-      pathWriter(0), symPathWriter(0), specialFunctionHandler(0),
-      processTree(0), replayKTest(0), replayPath(0), usingSeeds(0),
-      atMemoryLimit(false), inhibitForking(false), haltExecution(false),
-      ivcEnabled(false),
+    : Interpreter(opts), kmodule(0), interpreterHandler(ih), searcher(0), 
+      debugger(0), externalDispatcher(new ExternalDispatcher(ctx)), 
+      statsTracker(0), pathWriter(0), symPathWriter(0), 
+      specialFunctionHandler(0), processTree(0), replayKTest(0), 
+      replayPath(0), usingSeeds(0), atMemoryLimit(false), 
+      inhibitForking(false), haltExecution(false), ivcEnabled(false),
       coreSolverTimeout(MaxCoreSolverTime != 0 && MaxInstructionTime != 0
                             ? std::min(MaxCoreSolverTime, MaxInstructionTime)
                             : std::max(MaxCoreSolverTime, MaxInstructionTime)),
@@ -431,6 +431,7 @@ Executor::~Executor() {
     delete timers.back();
     timers.pop_back();
   }
+  if (debugger) delete debugger;
   delete debugInstFile;
 }
 
@@ -2593,7 +2594,7 @@ void Executor::doDumpStates() {
   updateStates(0);
 }
 
-void Executor::run(ExecutionState &initialState, KDebugger *debugger) {
+void Executor::run(ExecutionState &initialState) {
   bindModuleConstants();
 
   // Delay init till now so that ticks don't accrue during
@@ -2675,7 +2676,9 @@ void Executor::run(ExecutionState &initialState, KDebugger *debugger) {
 
   std::vector<ExecutionState *> newStates(states.begin(), states.end());
   searcher->update(0, newStates, std::vector<ExecutionState *>());
-
+  if (debugger) {
+    debugger->showPrompt();
+  }
   while (!states.empty() && !haltExecution) {
     ExecutionState &state = searcher->selectState();
     KInstruction *ki = state.pc;
@@ -3435,8 +3438,7 @@ void Executor::executeMakeSymbolic(ExecutionState &state,
 void Executor::runFunctionAsMain(Function *f,
 				 int argc,
 				 char **argv,
-				 char **envp,
-         KDebugger *debugger) {
+				 char **envp) {
   std::vector<ref<Expr> > arguments;
 
   // force deterministic initialization of memory objects
@@ -3526,7 +3528,7 @@ void Executor::runFunctionAsMain(Function *f,
 
   processTree = new PTree(state);
   state->ptreeNode = processTree->root;
-  run(*state, debugger);
+  run(*state);
   delete processTree;
   processTree = 0;
 

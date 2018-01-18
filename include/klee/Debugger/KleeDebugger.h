@@ -8,6 +8,7 @@
 #include "klee/ExecutionState.h"
 
 namespace klee {
+class DebugSearcher;
 
 namespace {
 const char * DEFAULT_PROMPT = "klee debugger, type h for help> ";
@@ -38,19 +39,18 @@ public:
     void showPrompt(const char *prompt = DEFAULT_PROMPT);
     void showPromptAtBreakpoint(const Breakpoint &breakpoint);
     void checkBreakpoint(const ExecutionState &state);
-    bool quitKlee();
     const std::set<Breakpoint> &breakpoints();
+    DebugSearcher *getSearcher() { return m_searcher; }
 
 private:
     // The last breakpoint encountered, used to prevent stopping at the same source line
     // multiple times (since one source line can correspond to multiple assembly lines)
     Breakpoint m_prevBp;
 
-    // Execution state at the current breakpoint, initially null.
-    const ExecutionState *m_currentState;
-
     // Set of breakpoints set by the user
     std::set<Breakpoint> m_breakpoints;
+
+    DebugSearcher *m_searcher;
 
     void printHelp();
     void printBreakpoints();
@@ -58,6 +58,7 @@ private:
     void printStack();
     void printConstraints();
     void printStateInfo(const char *line);
+    void nextState();
 };
 }
 #endif

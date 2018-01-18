@@ -1313,7 +1313,6 @@ int main(int argc, char **argv, char **envp) {
   Interpreter *interpreter =
     theInterpreter = Interpreter::create(ctx, IOpts, handler);
   handler->setInterpreter(interpreter);
-  KDebugger *debugger = UseDebugger ? new KDebugger() :  NULL;
 
   for (int i=0; i<argc; i++) {
     handler->getInfoStream() << argv[i] << (i+1<argc ? " ":"\n");
@@ -1423,10 +1422,10 @@ int main(int argc, char **argv, char **envp) {
                    sys::StrError(errno).c_str());
       }
     }
-    if (debugger) {
-      debugger->showPrompt();
+    if (UseDebugger) {
+      interpreter->setDebugger(new KDebugger());
     }
-    interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp, debugger);
+    interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp);
 
     while (!seeds.empty()) {
       kTest_free(seeds.back());
@@ -1502,7 +1501,6 @@ int main(int argc, char **argv, char **envp) {
   handler->getInfoStream() << stats.str();
 
   delete handler;
-  delete debugger;
 
   return 0;
 }

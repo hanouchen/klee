@@ -53,6 +53,12 @@ namespace {
   BatchTime("batch-time",
             cl::desc("Amount of time to batch when using --use-batching-search"),
             cl::init(5.0));
+  
+
+  cl::opt<bool>
+  UseDebugSearch("use-debug-search", 
+                   cl::desc("Allow user to select state"), 
+                   cl::init(false));
 
 }
 
@@ -123,6 +129,10 @@ Searcher *klee::constructUserSearcher(Executor &executor) {
 
   if (UseIterativeDeepeningTimeSearch) {
     searcher = new IterativeDeepeningTimeSearcher(searcher);
+  }
+
+  if (UseDebugSearch) {
+    searcher = executor.getDebugger()->getSearcher();
   }
 
   llvm::raw_ostream &os = executor.getHandler().getInfoStream();
