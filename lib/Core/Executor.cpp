@@ -2681,11 +2681,14 @@ void Executor::run(ExecutionState &initialState) {
   }
   while (!states.empty() && !haltExecution) {
     ExecutionState &state = searcher->selectState();
-    KInstruction *ki = state.pc;
     if (debugger) {
       debugger->checkBreakpoint(state);
+      if (debugger->stateChanged()) {
+        continue;
+      }
     }
 
+    KInstruction *ki = state.pc;
     stepInstruction(state);
 
 

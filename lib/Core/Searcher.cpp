@@ -85,12 +85,15 @@ void DFSSearcher::update(ExecutionState *current,
   }
 }
 
-ExecutionState &DebugSearcher::selectState() { return **iter; }
+ExecutionState &DebugSearcher::selectState() { 
+  std::rotate(iter, iter + 1, states.end());
+  iter = states.end() - 1;
+  return *states.back(); 
+}
 
 void DebugSearcher::update(ExecutionState *current,
     const std::vector<ExecutionState *> &addedStates,
     const std::vector<ExecutionState *> &removedStates) {
-
   states.insert(states.end(),
                 addedStates.begin(),
                 addedStates.end());

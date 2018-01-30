@@ -30,7 +30,6 @@ namespace {
 }
 
 KDebugger::KDebugger() : 
-    m_prevBp("", 0), 
     m_breakpoints(), 
     m_searcher(new DebugSearcher()) {}
 
@@ -73,24 +72,24 @@ void KDebugger::showPromptAtBreakpoint(const Breakpoint &breakpoint) {
     showPrompt(prompt.c_str());
 }
 
-void KDebugger::checkBreakpoint(const ExecutionState &state) {
-    if (m_breakpoints.empty()) {
+void KDebugger::checkBreakpoint(ExecutionState &state) {
+    if (m_breakpoints.empty() || !state.pc) {
         return;
     }
     auto ki = state.pc;
-    m_searcher->setIter(&state);
-    if (!ki) {
-        return;
-    }
     std::regex fileRegex(".*\\/(\\w*\\.\\w*)");
     std::cmatch matches;
     if (std::regex_search(ki->info->file.c_str(), matches, fileRegex)) {
       Breakpoint bp(matches[1].str(), ki->info->line);
-      if (m_prevBp != bp && m_breakpoints.find(bp) != m_breakpoints.end()) {
-        m_prevBp = bp;
+      if (state.lastBreakpoint != bp && m_breakpoints.find(bp) != m_breakpoints.end()) {
+        state.lastBreakpoint = bp;
         showPromptAtBreakpoint(bp);
       }
     }
+}
+
+bool KDebugger::stateChanged() {
+    return m_searcher->stateChanged();
 }
 
 const std::set<Breakpoint> & KDebugger::breakpoints() {

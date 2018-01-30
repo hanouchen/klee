@@ -12,6 +12,7 @@
 
 #include "klee/Constraints.h"
 #include "klee/Expr.h"
+#include "klee/Debugger/Breakpoint.h"
 #include "klee/Internal/ADT/TreeStream.h"
 #include "klee/MergeHandler.h"
 
@@ -97,6 +98,9 @@ public:
 
   /// @brief Constraints collected so far
   ConstraintManager constraints;
+
+  /// @brief Last breakpoint for this state.
+  Breakpoint lastBreakpoint;
 
   /// Statistics and information
 
