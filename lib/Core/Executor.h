@@ -15,7 +15,6 @@
 #ifndef KLEE_EXECUTOR_H
 #define KLEE_EXECUTOR_H
 
-#include "klee/Debugger/KleeDebugger.h"
 #include "klee/ExecutionState.h"
 #include "klee/Interpreter.h"
 #include "klee/Internal/Module/Cell.h"
@@ -123,7 +122,6 @@ private:
   KModule *kmodule;
   InterpreterHandler *interpreterHandler;
   Searcher *searcher;
-  KDebugger *debugger;
 
   ExternalDispatcher *externalDispatcher;
   TimingSolver *solver;
@@ -463,10 +461,6 @@ public:
     return *interpreterHandler;
   }
 
-  virtual void setDebugger(KDebugger *debugger) {
-    this->debugger = debugger;
-  }
-
   virtual void setPathWriter(TreeStreamWriter *tsw) {
     pathWriter = tsw;
   }
@@ -509,8 +503,6 @@ public:
   }
 
   void prepareForEarlyExit();
-
-  KDebugger *getDebugger() { return debugger; }
 
   /*** State accessor methods ***/
 

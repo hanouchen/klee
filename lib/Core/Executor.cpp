@@ -327,7 +327,7 @@ const char *Executor::TerminateReasonNames[] = {
 Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
     InterpreterHandler *ih)
     : Interpreter(opts), kmodule(0), interpreterHandler(ih), searcher(0), 
-      debugger(0), externalDispatcher(new ExternalDispatcher(ctx)), 
+      externalDispatcher(new ExternalDispatcher(ctx)), 
       statsTracker(0), pathWriter(0), symPathWriter(0), 
       specialFunctionHandler(0), processTree(0), replayKTest(0), 
       replayPath(0), usingSeeds(0), atMemoryLimit(false), 
@@ -431,7 +431,6 @@ Executor::~Executor() {
     delete timers.back();
     timers.pop_back();
   }
-  if (debugger) delete debugger;
   delete debugInstFile;
 }
 
@@ -2676,17 +2675,10 @@ void Executor::run(ExecutionState &initialState) {
 
   std::vector<ExecutionState *> newStates(states.begin(), states.end());
   searcher->update(0, newStates, std::vector<ExecutionState *>());
-  if (debugger) {
-    debugger->showPrompt();
-  }
-  while (!states.empty() && !haltExecution) {
+
+  while (!states.empty()) {
     ExecutionState &state = searcher->selectState();
-    if (debugger) {
-      debugger->checkBreakpoint(state);
-      if (debugger->stateChanged()) {
-        continue;
-      }
-    }
+    if (haltExecution) break;
 
     KInstruction *ki = state.pc;
     stepInstruction(state);

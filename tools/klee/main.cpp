@@ -120,11 +120,6 @@ namespace {
   OptExitOnError("exit-on-error",
               cl::desc("Exit if errors occur"));
 
-  cl::opt<bool>
-  UseDebugger("use-debugger",
-              cl::desc("Run klee with symbolic debugger"));
-
-
   enum LibcType {
     NoLibc, KleeLibc, UcLibc
   };
@@ -926,6 +921,16 @@ void halt_execution() {
 }
 
 extern "C"
+bool klee_interrupted() {
+  return interrupted;
+}
+
+extern "C"
+void set_halt_execution(bool halt) {
+  theInterpreter->setHaltExecution(halt);
+}
+
+extern "C"
 void stop_forking() {
   theInterpreter->setInhibitForking(true);
 }
@@ -1421,9 +1426,6 @@ int main(int argc, char **argv, char **envp) {
         klee_error("Unable to change directory to: %s - %s", RunInDir.c_str(),
                    sys::StrError(errno).c_str());
       }
-    }
-    if (UseDebugger) {
-      interpreter->setDebugger(new KDebugger());
     }
     interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp);
 

@@ -28,7 +28,6 @@ namespace klee {
 class ExecutionState;
 class Interpreter;
 class TreeStreamWriter;
-class KDebugger;
 
 class InterpreterHandler {
 public:
@@ -106,8 +105,6 @@ public:
   virtual const llvm::Module * 
   setModule(llvm::Module *module, 
             const ModuleOptions &opts) = 0;
-  // supply a debugger 
-  virtual void setDebugger(KDebugger *debugger) = 0;
 
   // supply a tree stream writer which the interpreter will use
   // to record the concrete path (as a stream of '0' and '1' bytes).

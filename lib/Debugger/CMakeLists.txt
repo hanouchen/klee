@@ -7,6 +7,7 @@
 #
 #===------------------------------------------------------------------------===#
 klee_add_component(kleeDebugger
-  KleeDebugger.cpp
   linenoise.c
+  KleeDebugger.cpp
+  Prompt.cpp
 )

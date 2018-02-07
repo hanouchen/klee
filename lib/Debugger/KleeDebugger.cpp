@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <iostream>
+#include <functional>
 #include <regex>
 #include <sstream>
 #include <vector>
@@ -10,6 +11,7 @@
 
 #include "klee/util/ExprPPrinter.h"
 #include "klee/Debugger/KleeDebugger.h"
+#include "klee/Debugger/Prompt.h"
 #include "klee/Debugger/linenoise.h"
 #include "klee/Internal/Support/ErrorHandling.h"
 
@@ -17,54 +19,84 @@
 namespace klee {
 
 namespace {
-    const std::string QUIT = "q";
-    const std::string RUN = "r";
-    const std::string CONTINUE = "c";
-    const std::string LIST = "l";
-    const std::string HELP = "h";
-    const std::string INFO = "info";
-    const std::string INFO_STACK = INFO + " stack";
-    const std::string INFO_CONSTRAINTS = INFO + " constraints";
-    const std::string NEXT_STATE = "nstate";
-    const char BREAK = 'b';
+enum Option {
+    // info options
+    stack,
+    constraints,
+    all,
+    breakpoints,
+
+    // state navigation option
+    next,
+    prev,
+
+    invalid
+};
+
+enum stateOption {
+};
+
+std::pair<const char *, void(KDebugger::*)(CommandBuffer &)> commandTable[] = 
+{
+    {"c",     &KDebugger::handleContinue},
+    {"r",     &KDebugger::handleRun},
+    {"q",     &KDebugger::handleQuit},
+    {"b",     &KDebugger::handleBreakpoint},
+    {"info",  &KDebugger::handleInfo},
+    {"help",  &KDebugger::handleHelp},
+    {"state", &KDebugger::handleState},
+    {0,       &KDebugger::handleHelp}
+};
+
+std::pair<const char *, Option> OptStrs[] = 
+{
+    {"",            all},
+    {"stack",       stack},
+    {"constraints", constraints},
+    {"breakpoints", breakpoints},
+
+    {"next",        next},
+    {"prev",        prev},
+
+    {0,             invalid}
+};
 }
 
+extern "C" void set_halt_execution(bool);
+extern "C" bool klee_interrupted();
+
 KDebugger::KDebugger() : 
+    prompt(std::bind(&KDebugger::handleCommand, this, std::placeholders::_1)),
     m_breakpoints(), 
-    m_searcher(new DebugSearcher()) {}
+    m_searcher(new DebugSearcher()),
+    initialPrompt(true) {}
+
+ExecutionState & KDebugger::selectState() {
+    if (initialPrompt) {
+        prompt.show();
+        initialPrompt = false;
+    } else if (klee_interrupted()) {
+        set_halt_execution(false);
+        prompt.show("KLEE: ctrl-c detected, execution interrupted> ");
+    } else {
+        checkBreakpoint(m_searcher->selectState());
+    }
+    return m_searcher->selectState();
+}
+
+void KDebugger::update(ExecutionState *current,
+                    const std::vector<ExecutionState *> &addedStates,
+                    const std::vector<ExecutionState *> &removedStates) { 
+    m_searcher->update(current, addedStates, removedStates);             
+}
+
+bool KDebugger::empty() {
+    return m_searcher->empty();
+}
 
 void KDebugger::showPrompt(const char *prompt) {
     assert(prompt);
-
-    char *line;
-    while((line = linenoise(prompt)) != NULL) {
-        if (line == QUIT) {
-            break;
-        } else if (line == CONTINUE) {
-            break;
-        } else if (line == RUN) {
-            m_breakpoints.clear();
-            break;
-        } else if (line[0] == BREAK) {
-            addBreakpointFromLine(line + 1);
-        } else if (line == NEXT_STATE) {
-            nextState();
-        } else if (line == LIST) {
-            printBreakpoints();
-        } else if (line == HELP) {
-            printHelp();
-        } else if (strlen(line) >= INFO.length() && INFO == std::string(line).substr(0, INFO.length())) {
-            printStateInfo(line);
-        } else if (line[0] != '\0') {
-            klee_message("Invalid command, type h to see list of commands"); 
-        } 
-        
-        if (line[0] != '\0') {
-            linenoiseHistoryAdd(line);
-        }
-        linenoiseFree(line); 
-    }
-    return;
+    this->prompt.show(prompt);
 }
 
 void KDebugger::showPromptAtBreakpoint(const Breakpoint &breakpoint) {
@@ -88,40 +120,91 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
     }
 }
 
-bool KDebugger::stateChanged() {
-    return m_searcher->stateChanged();
-}
 
 const std::set<Breakpoint> & KDebugger::breakpoints() {
     return m_breakpoints;
 }
 
+void KDebugger::handleCommand(CommandBuffer &cmd) {
+    auto handler = cmd.search(commandTable);
+    (this->*handler)(cmd);
+}
 
-void KDebugger::printHelp() {
+void KDebugger::handleContinue(CommandBuffer &cmd) {
+    if (!cmd.endOfLine()) {
+        llvm::outs() << "\"continue\" does not take arguments\n";
+        return;
+    }
+    prompt.breakFromLoop();
+}
+
+void KDebugger::handleRun(CommandBuffer &cmd) {
+    if (!cmd.endOfLine()) {
+        llvm::outs() << "\"run\" does not take arguments\n";
+        return;
+    }
+    m_breakpoints.clear();
+    prompt.breakFromLoop();
+}
+
+void KDebugger::handleQuit(CommandBuffer &cmd) {
+    if (!cmd.endOfLine()) {
+        llvm::outs() << "\"quit\" does not take arguments\n";
+        return;
+    }
+    set_halt_execution(true);
+    prompt.breakFromLoop();
+}
+
+void KDebugger::handleBreakpoint(CommandBuffer &cmd) {
+    std::regex breakpointRegex("(\\w*\\.\\w*)\\:([0-9]+)");
+    std::cmatch matches;
+    std::string input(cmd.nextToken());
+    if (std::regex_search(input.c_str(), matches, breakpointRegex)) {
+        auto res = m_breakpoints.emplace(matches.str(1), (unsigned)stoi(matches.str(2)));
+        klee_message(res.second ? "Breakpoint set" : "Breakpoint already exist");
+    } else {
+        klee_message("Invalid breakpoint format");
+    }
+}
+
+void KDebugger::handleInfo(CommandBuffer &cmd) {
+    auto info = cmd.search(OptStrs);
+    switch (info) {
+        case stack: printStack(); break;
+        case constraints: printConstraints(); break;
+        case Option::breakpoints: printBreakpoints(); break;
+        case all: 
+            printStack();
+            llvm::outs() << "\n";
+            printConstraints();
+            break;
+        default:
+            llvm::outs() << "Invalid info option, type \"h\" for help.\n";
+    }
+}
+
+void KDebugger::handleState(CommandBuffer &cmd) {
+    nextState();
+}
+
+void KDebugger::handleHelp(CommandBuffer &cmd) {
+    if (!cmd.endOfLine()) {
+        llvm::outs() << "\"help\" does not take arguments\n";
+        return;
+    }
     klee_message("\n  Type r to run the program.\n"
                  "  Type q to quit klee.\n"
                  "  Type c to continue until the next breakpoint.\n"
                  "  Type b <filename>:<linenumber> to add a breakpoint.\n"
                  "  Type info [stack | constraints] to show information about the current execution state.\n"
-                 "  Type nstate to go to the next available state.\n"
-                 "  Type l to list all the breakpoints set.");
+                 "  Type state [prev | next] to traverse available states.\n");
 }
 
 void KDebugger::printBreakpoints() {
     klee_message("%zu breakpoints set", m_breakpoints.size());
     for (auto & bp : m_breakpoints) {
         klee_message("%s at line %u", bp.file.c_str(), bp.line);
-    }
-}
-
-void KDebugger::addBreakpointFromLine(const char *line) {
-    std::regex breakpointRegex("\\s+(\\w*\\.\\w*)\\:([0-9]+)");
-    std::cmatch matches;
-    if (std::regex_search(line, matches, breakpointRegex)) {
-        auto res = m_breakpoints.emplace(matches[1].str(), (unsigned)stoi(matches[2].str()));
-        klee_message(res.second ? "Breakpoint set" : "Breakpoint already exist");
-    } else {
-        klee_message("Invalid breakpoint format");
     }
 }
 
@@ -139,26 +222,6 @@ void KDebugger::printConstraints() {
     llvm::outs() << "KLEE:Constraints for current state:\n";
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
     ExprPPrinter::printConstraints(llvm::outs(), state->constraints);
-}
-
-void KDebugger::printStateInfo(const char *line) {
-    if (!m_searcher->currentState()) {
-        klee_message("Invalid execution state, no info to show.");
-        return;
-    }
-
-    if (line == INFO) {
-        printStack();
-        llvm::outs() << "\n";
-        printConstraints();
-    } else if (line == INFO_STACK) {
-        printStack();
-    } else if (line == INFO_CONSTRAINTS) {
-        printConstraints();
-    } else {
-        klee_message("Unkown info argument");
-        return;
-    }
 }
 
 void KDebugger::nextState() {

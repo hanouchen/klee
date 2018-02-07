@@ -14,6 +14,7 @@
 
 #include "klee/Internal/Support/ErrorHandling.h"
 #include "klee/CommandLine.h"
+#include "klee/Debugger/KleeDebugger.h"
 
 #include "llvm/Support/CommandLine.h"
 
@@ -56,8 +57,8 @@ namespace {
   
 
   cl::opt<bool>
-  UseDebugSearch("use-debug-search", 
-                   cl::desc("Allow user to select state"), 
+  UseDebugger("use-debugger", 
+                   cl::desc("Run klee with debugger"), 
                    cl::init(false));
 
 }
@@ -131,8 +132,8 @@ Searcher *klee::constructUserSearcher(Executor &executor) {
     searcher = new IterativeDeepeningTimeSearcher(searcher);
   }
 
-  if (UseDebugSearch) {
-    searcher = executor.getDebugger()->getSearcher();
+  if (UseDebugger) {
+    searcher = new KDebugger();
   }
 
   llvm::raw_ostream &os = executor.getHandler().getInfoStream();
