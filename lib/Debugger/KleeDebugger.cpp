@@ -138,7 +138,23 @@ void KDebugger::handleCommand(std::vector<std::string> &input) {
             default:
                 llvm::outs() << "invalid\n";
         }
-    } 
+    }  else {
+        if (res.begin()->blocked()) {
+            llvm::outs() << "Unkown command: " << res.begin()->arg() << "\n";
+        } else {
+            llvm::outs() << res.begin()->arg() << ": ";
+            for(const auto& m : res) {
+                if (m.blocked() && m.conflict()) {
+                    llvm::outs() << "invalid argument(s)\n";
+                    return;
+                } else if (m.blocked()) {
+                    llvm::outs() << "too many arguments\n";
+                    return;
+                }
+            } 
+            llvm::outs() << "argument required\n";
+        }
+    }
 }
 
 void KDebugger::handleContinue() {
