@@ -86,6 +86,7 @@ void DFSSearcher::update(ExecutionState *current,
 }
 
 ExecutionState &DebugSearcher::selectState() { 
+  preSelectCallback();
   std::rotate(iter, iter + 1, states.end());
   iter = states.end() - 1;
   return *states.back(); 

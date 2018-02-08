@@ -13,27 +13,34 @@
 
 namespace klee {
 class DebugSearcher;
+class StatsTracker;
 
 namespace {
 const char * DEFAULT_PROMPT = "klee debugger, type h for help> ";
 }
 
-class KDebugger : public Searcher {
+class KDebugger {
 public:
 
     KDebugger();
 
-    bool empty();
-    ExecutionState &selectState();
-    void update(ExecutionState *current,
-                        const std::vector<ExecutionState *> &addedStates,
-                        const std::vector<ExecutionState *> &removedStates);
+    void selectState();
 
     void showPrompt(const char *prompt = DEFAULT_PROMPT);
     void showPromptAtBreakpoint(const Breakpoint &breakpoint);
     void checkBreakpoint(ExecutionState &state);
+    void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
+    void setSearcher(DebugSearcher *searcher);
     const std::set<Breakpoint> &breakpoints();
-    DebugSearcher *getSearcher() { return m_searcher; }
+
+
+private:
+
+    Prompt prompt;
+    DebugSearcher *searcher;
+    StatsTracker *statsTracker;
+    std::set<Breakpoint> m_breakpoints;
+    bool initialPrompt;
 
     void handleCommand(std::vector<std::string> &);
     void handleContinue();
@@ -42,19 +49,11 @@ public:
     void handleHelp();
     void handleBreakpoint(std::string &);
     void handleInfo(InfoOpt opt);
+    void printStats();
     void handleState(StateOpt opt);
-
-private:
-
-    Prompt prompt;
-    std::set<Breakpoint> m_breakpoints;
-    DebugSearcher *m_searcher;
-    bool initialPrompt;
-
     void printBreakpoints();
     void printStack();
     void printConstraints();
-    void nextState();
 };
 }
 #endif

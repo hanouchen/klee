@@ -54,13 +54,6 @@ namespace {
   BatchTime("batch-time",
             cl::desc("Amount of time to batch when using --use-batching-search"),
             cl::init(5.0));
-  
-
-  cl::opt<bool>
-  UseDebugger("use-debugger", 
-                   cl::desc("Run klee with debugger"), 
-                   cl::init(false));
-
 }
 
 
@@ -105,6 +98,11 @@ Searcher *getNewSearcher(Searcher::CoreSearchType type, Executor &executor) {
 }
 
 Searcher *klee::constructUserSearcher(Executor &executor) {
+  if (executor.getDebugger()) {
+    DebugSearcher *debugSearcher = new DebugSearcher();
+    executor.getDebugger()->setSearcher(debugSearcher);
+    return debugSearcher;
+  }
 
   Searcher *searcher = getNewSearcher(CoreSearch[0], executor);
   
@@ -130,10 +128,6 @@ Searcher *klee::constructUserSearcher(Executor &executor) {
 
   if (UseIterativeDeepeningTimeSearch) {
     searcher = new IterativeDeepeningTimeSearcher(searcher);
-  }
-
-  if (UseDebugger) {
-    searcher = new KDebugger();
   }
 
   llvm::raw_ostream &os = executor.getHandler().getInfoStream();

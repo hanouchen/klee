@@ -16,6 +16,7 @@
 #define KLEE_EXECUTOR_H
 
 #include "klee/ExecutionState.h"
+#include "klee/Debugger/KleeDebugger.h"
 #include "klee/Interpreter.h"
 #include "klee/Internal/Module/Cell.h"
 #include "klee/Internal/Module/KInstruction.h"
@@ -127,6 +128,7 @@ private:
   TimingSolver *solver;
   MemoryManager *memory;
   std::set<ExecutionState*> states;
+  KDebugger *debugger;
   StatsTracker *statsTracker;
   TreeStreamWriter *pathWriter, *symPathWriter;
   SpecialFunctionHandler *specialFunctionHandler;
@@ -461,9 +463,18 @@ public:
     return *interpreterHandler;
   }
 
+  KDebugger *getDebugger() {
+    return debugger;
+  }
+
   virtual void setPathWriter(TreeStreamWriter *tsw) {
     pathWriter = tsw;
   }
+
+  virtual void setDebugger(KDebugger *debugger) {
+    this->debugger = debugger;
+  }
+
   virtual void setSymbolicPathWriter(TreeStreamWriter *tsw) {
     symPathWriter = tsw;
   }

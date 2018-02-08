@@ -327,7 +327,7 @@ const char *Executor::TerminateReasonNames[] = {
 Executor::Executor(LLVMContext &ctx, const InterpreterOptions &opts,
     InterpreterHandler *ih)
     : Interpreter(opts), kmodule(0), interpreterHandler(ih), searcher(0), 
-      externalDispatcher(new ExternalDispatcher(ctx)), 
+      externalDispatcher(new ExternalDispatcher(ctx)), debugger(0),
       statsTracker(0), pathWriter(0), symPathWriter(0), 
       specialFunctionHandler(0), processTree(0), replayKTest(0), 
       replayPath(0), usingSeeds(0), atMemoryLimit(false), 
@@ -425,6 +425,7 @@ Executor::~Executor() {
   delete processTree;
   delete specialFunctionHandler;
   delete statsTracker;
+  delete debugger;
   delete solver;
   delete kmodule;
   while(!timers.empty()) {
@@ -2676,6 +2677,10 @@ void Executor::run(ExecutionState &initialState) {
   std::vector<ExecutionState *> newStates(states.begin(), states.end());
   searcher->update(0, newStates, std::vector<ExecutionState *>());
 
+  if (debugger) {
+    debugger->showPrompt();
+  }
+  
   while (!states.empty()) {
     ExecutionState &state = searcher->selectState();
     if (haltExecution) break;

@@ -95,8 +95,9 @@ namespace klee {
   };
 
   class DebugSearcher : public Searcher {
+  typedef std::function<void(void)> PreSelectCallback;
   public:
-    DebugSearcher() : states(), iter() {}
+    DebugSearcher() : preSelectCallback(nullptr), states(), iter() {}
     ExecutionState &selectState();
     void update(ExecutionState *current,
               const std::vector<ExecutionState *> &addedStates,
@@ -105,11 +106,15 @@ namespace klee {
     void printName(llvm::raw_ostream &os) {
       os << "DebugSearcher\n";
     }
+    void setPreSelectCallback(PreSelectCallback callback) {
+      preSelectCallback = callback;
+    }
     void setIter(const ExecutionState *state);
     void nextIter();
     ExecutionState *currentState();
 
   private: 
+    PreSelectCallback preSelectCallback;
     std::vector<ExecutionState *> states;
     std::vector<ExecutionState *>::iterator iter;
   };

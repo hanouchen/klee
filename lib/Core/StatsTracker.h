@@ -83,6 +83,9 @@ namespace klee {
     double elapsed();
 
     void computeReachableUncovered();
+
+    void printStatsHeader();
+    void printStatsLine();
   };
 
   uint64_t computeMinDistToUncovered(const KInstruction *ki,

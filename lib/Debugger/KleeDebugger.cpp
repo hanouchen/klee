@@ -7,6 +7,7 @@
 
 // FIXME: Probably not a good idea?
 #include "../Core/Searcher.h"
+#include "../Core/StatsTracker.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "klee/util/ExprPPrinter.h"
@@ -15,6 +16,7 @@
 #include "klee/Debugger/Prompt.h"
 #include "klee/Debugger/linenoise.h"
 #include "klee/Internal/Support/ErrorHandling.h"
+#include "klee/Statistics.h"
 
 namespace klee {
 
@@ -23,7 +25,7 @@ namespace {
 using namespace clipp;
 enum class commandtype {cont, run, quit, breakpoint, info, help, state, none};
 CommandType selected = CommandType::none;
-InfoOpt infoOpt = InfoOpt::invalid;
+InfoOpt infoOpt = InfoOpt::all;
 StateOpt stateOpt = StateOpt::invalid;
 std::string bpString;
 
@@ -34,10 +36,10 @@ auto help = (command("h").set(selected, CommandType::help));
 auto bcmd = (command("b").set(selected, CommandType::breakpoint), 
              values("", bpString));
 auto info = (command("info").set(selected, CommandType::info),
-             one_of(command("breakpoints").set(infoOpt, InfoOpt::breakpoints),
-                    command("stack").set(infoOpt, InfoOpt::stack),
-                    command("constraints").set(infoOpt, InfoOpt::constraints),
-                    command("all").set(infoOpt, InfoOpt::all)));
+             one_of(option("breakpoints").set(infoOpt, InfoOpt::breakpoints),
+                    option("stack").set(infoOpt, InfoOpt::stack),
+                    option("constraints").set(infoOpt, InfoOpt::constraints),
+                    option("all").set(infoOpt, InfoOpt::all)));
 
 auto changestate = (command("state").set(selected, CommandType::state),
              one_of(command("next").set(stateOpt, StateOpt::next),
@@ -52,31 +54,18 @@ extern "C" bool klee_interrupted();
 
 KDebugger::KDebugger() : 
     prompt(std::bind(&KDebugger::handleCommand, this, std::placeholders::_1)),
+    searcher(0),
+    statsTracker(0),
     m_breakpoints(), 
-    m_searcher(new DebugSearcher()),
     initialPrompt(true) {}
 
-ExecutionState & KDebugger::selectState() {
-    if (initialPrompt) {
-        prompt.show();
-        initialPrompt = false;
-    } else if (klee_interrupted()) {
+void KDebugger::selectState() {
+    if (klee_interrupted()) {
         set_halt_execution(false);
         prompt.show("KLEE: ctrl-c detected, execution interrupted> ");
     } else {
-        checkBreakpoint(m_searcher->selectState());
+        checkBreakpoint(*searcher->currentState());
     }
-    return m_searcher->selectState();
-}
-
-void KDebugger::update(ExecutionState *current,
-                    const std::vector<ExecutionState *> &addedStates,
-                    const std::vector<ExecutionState *> &removedStates) { 
-    m_searcher->update(current, addedStates, removedStates);             
-}
-
-bool KDebugger::empty() {
-    return m_searcher->empty();
 }
 
 void KDebugger::showPrompt(const char *prompt) {
@@ -108,6 +97,12 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
 
 const std::set<Breakpoint> & KDebugger::breakpoints() {
     return m_breakpoints;
+}
+
+void KDebugger::setSearcher(DebugSearcher *searcher) {
+    this->searcher = searcher;
+    this->searcher->setPreSelectCallback(
+        std::bind(&KDebugger::selectState, this));
 }
 
 void KDebugger::handleCommand(std::vector<std::string> &input) {
@@ -198,8 +193,10 @@ void KDebugger::handleInfo(InfoOpt opt) {
 }
 
 void KDebugger::handleState(StateOpt dir) {
-    nextState();
+    searcher->nextIter();
 }
+
+void KDebugger::printStats() {}
 
 void KDebugger::handleHelp() {
     klee_message("\n  Type r to run the program.\n"
@@ -218,7 +215,7 @@ void KDebugger::printBreakpoints() {
 }
 
 void KDebugger::printStack() {
-    auto state = m_searcher->currentState();
+    auto state = searcher->currentState();
     llvm::outs().changeColor(llvm::raw_ostream::CYAN);
     llvm::outs() << "KLEE:Stack dump:\n";
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
@@ -226,15 +223,11 @@ void KDebugger::printStack() {
 }
 
 void KDebugger::printConstraints() {
-    auto state = m_searcher->currentState();
+    auto state = searcher->currentState();
     llvm::outs().changeColor(llvm::raw_ostream::CYAN);
     llvm::outs() << "KLEE:Constraints for current state:\n";
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
     ExprPPrinter::printConstraints(llvm::outs(), state->constraints);
-}
-
-void KDebugger::nextState() {
-    m_searcher->nextIter();
 }
 
 }

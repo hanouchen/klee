@@ -28,6 +28,7 @@ namespace klee {
 class ExecutionState;
 class Interpreter;
 class TreeStreamWriter;
+class KDebugger;
 
 class InterpreterHandler {
 public:
@@ -109,6 +110,8 @@ public:
   // supply a tree stream writer which the interpreter will use
   // to record the concrete path (as a stream of '0' and '1' bytes).
   virtual void setPathWriter(TreeStreamWriter *tsw) = 0;
+
+  virtual void setDebugger(KDebugger *debugger) = 0;
 
   // supply a tree stream writer which the interpreter will use
   // to record the symbolic path (as a stream of '0' and '1' bytes).

@@ -206,6 +206,11 @@ namespace {
   Watchdog("watchdog",
            cl::desc("Use a watchdog process to enforce --max-time."),
            cl::init(0));
+  
+  cl::opt<bool>
+  UseDebugger("use-debugger",
+           cl::desc("Use a debugger with klee."),
+           cl::init(0));
 }
 
 extern cl::opt<double> MaxTime;
@@ -1426,6 +1431,9 @@ int main(int argc, char **argv, char **envp) {
         klee_error("Unable to change directory to: %s - %s", RunInDir.c_str(),
                    sys::StrError(errno).c_str());
       }
+    }
+    if (UseDebugger) {
+      interpreter->setDebugger(new KDebugger());
     }
     interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp);
 
