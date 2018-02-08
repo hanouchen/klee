@@ -18,6 +18,7 @@ namespace llvm {
   class BranchInst;
   class Function;
   class Instruction;
+  class raw_ostream;
   class raw_fd_ostream;
 }
 
@@ -84,8 +85,7 @@ namespace klee {
 
     void computeReachableUncovered();
 
-    void printStatsHeader();
-    void printStatsLine();
+    void printStats(llvm::raw_ostream &);
   };
 
   uint64_t computeMinDistToUncovered(const KInstruction *ki,

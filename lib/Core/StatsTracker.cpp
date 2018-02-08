@@ -101,7 +101,7 @@ namespace {
   UseCallPaths("use-call-paths",
 	       cl::init(true),
                cl::desc("Enable calltree tracking for instruction level statistics (default=on)"));
-  
+            
 }
 
 ///
@@ -391,6 +391,31 @@ void StatsTracker::markBranchVisited(ExecutionState *visitedTrue,
       else ++partialBranches;
     }
   }
+}
+
+void StatsTracker::printStats(llvm::raw_ostream &os) {
+
+  os << "'Instructions': " << stats::instructions << "\n"
+     << "'FullBranches': " << fullBranches << "\n"
+     << "'PartialBranches': " << partialBranches << "\n"
+     << "'NumBranches': "  << numBranches << "\n"
+     << "'UserTime': " << util::getUserTime() << "\n"
+     << "'NumStates': " << executor.states.size() << "\n"
+     << "'MallocUsage': " << util::GetTotalMallocUsage() + executor.memory->getUsedDeterministicSize() << "\n"
+     << "'NumQueries': " << stats::queries << "\n"
+     << "'NumQueryConstructs': " << stats::queryConstructs << "\n"
+     << "'WallTime': " << elapsed() << "\n"
+     << "'CoveredInstructions': " << stats::coveredInstructions << "\n"
+     << "'UncoveredInstructions': " << stats::uncoveredInstructions << "\n"
+     << "'QueryTime': " << stats::queryTime / 1000000. << "\n"
+     << "'SolverTime': " << stats::solverTime / 1000000. << "\n"
+     << "'CexCacheTime': " << stats::cexCacheTime / 1000000. << "\n"
+     << "'ForkTime': " << stats::forkTime / 1000000. << "\n"
+     << "'ResolveTime': " << stats::resolveTime / 1000000. << "\n"
+#ifdef DEBUG
+     << "'ArrayHashTime': " << stats::arrayHashTime / 1000000. << "\n"
+#endif
+    ;
 }
 
 void StatsTracker::writeStatsHeader() {

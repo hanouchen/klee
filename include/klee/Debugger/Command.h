@@ -30,6 +30,7 @@ enum class InfoOpt {
     constraints,
     all,
     breakpoints,
+    statistics,
     invalid
 };
 

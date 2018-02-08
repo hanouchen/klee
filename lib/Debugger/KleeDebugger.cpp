@@ -39,6 +39,7 @@ auto info = (command("info").set(selected, CommandType::info),
              one_of(option("breakpoints").set(infoOpt, InfoOpt::breakpoints),
                     option("stack").set(infoOpt, InfoOpt::stack),
                     option("constraints").set(infoOpt, InfoOpt::constraints),
+                    option("stats").set(infoOpt, InfoOpt::statistics),
                     option("all").set(infoOpt, InfoOpt::all)));
 
 auto changestate = (command("state").set(selected, CommandType::state),
@@ -182,6 +183,7 @@ void KDebugger::handleInfo(InfoOpt opt) {
         case InfoOpt::stack: printStack(); break;
         case InfoOpt::constraints: printConstraints(); break;
         case InfoOpt::breakpoints: printBreakpoints(); break;
+        case InfoOpt::statistics: this->statsTracker->printStats(llvm::outs()); break;
         case InfoOpt::all:
             printStack();
             llvm::outs() << "\n";

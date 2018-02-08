@@ -473,6 +473,9 @@ public:
 
   virtual void setDebugger(KDebugger *debugger) {
     this->debugger = debugger;
+    if (statsTracker) {
+      this->debugger->setStatsTracker(statsTracker);
+    }
   }
 
   virtual void setSymbolicPathWriter(TreeStreamWriter *tsw) {
