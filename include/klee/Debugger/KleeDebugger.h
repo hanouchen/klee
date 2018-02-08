@@ -35,18 +35,17 @@ public:
     const std::set<Breakpoint> &breakpoints();
     DebugSearcher *getSearcher() { return m_searcher; }
 
-    void handleCommand(CommandBuffer &cmdBuff);
-    void handleContinue(CommandBuffer &);
-    void handleRun(CommandBuffer &);
-    void handleQuit(CommandBuffer &);
-    void handleBreakpoint(CommandBuffer &);
-    void handleInfo(CommandBuffer &);
-    void handleHelp(CommandBuffer &);
-    void handleState(CommandBuffer &);
+    void handleCommand(std::vector<std::string> &);
+    void handleContinue();
+    void handleRun();
+    void handleQuit();
+    void handleHelp();
+    void handleBreakpoint(std::string &);
+    void handleInfo(InfoOpt opt);
+    void handleState(StateOpt opt);
 
 private:
 
-    // Set of breakpoints set by the user
     Prompt prompt;
     std::set<Breakpoint> m_breakpoints;
     DebugSearcher *m_searcher;

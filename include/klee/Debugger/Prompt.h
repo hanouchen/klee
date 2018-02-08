@@ -1,7 +1,8 @@
 #ifndef KLEE_PROMPT_H
 #define KLEE_PROMPT_H
 
-#include <functional>
+#include <vector>
+#include <string>
 #include "klee/Debugger/Command.h"
 
 namespace klee {
@@ -10,7 +11,7 @@ namespace {
 const char *DEFAULT = "klee debugger, type h for help> ";
 };
 
-typedef std::function<void(CommandBuffer &)> CommandHandler;
+typedef std::function<void(std::vector<std::string> &)> CommandHandler;
 
 class Prompt {
 

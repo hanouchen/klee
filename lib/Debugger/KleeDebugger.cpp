@@ -10,56 +10,41 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "klee/util/ExprPPrinter.h"
+#include "klee/Debugger/clipp.h"
 #include "klee/Debugger/KleeDebugger.h"
 #include "klee/Debugger/Prompt.h"
 #include "klee/Debugger/linenoise.h"
 #include "klee/Internal/Support/ErrorHandling.h"
 
-
 namespace klee {
 
 namespace {
-enum Option {
-    // info options
-    stack,
-    constraints,
-    all,
-    breakpoints,
 
-    // state navigation option
-    next,
-    prev,
+using namespace clipp;
+enum class commandtype {cont, run, quit, breakpoint, info, help, state, none};
+CommandType selected = CommandType::none;
+InfoOpt infoOpt = InfoOpt::invalid;
+StateOpt stateOpt = StateOpt::invalid;
+std::string bpString;
 
-    invalid
-};
+auto contcmd = (command("c").set(selected, CommandType::cont));
+auto runcmd = (command("r").set(selected, CommandType::run));
+auto quitcmd = (command("q").set(selected, CommandType::quit));
+auto help = (command("h").set(selected, CommandType::help));
+auto bcmd = (command("b").set(selected, CommandType::breakpoint), 
+             values("", bpString));
+auto info = (command("info").set(selected, CommandType::info),
+             one_of(command("breakpoints").set(infoOpt, InfoOpt::breakpoints),
+                    command("stack").set(infoOpt, InfoOpt::stack),
+                    command("constraints").set(infoOpt, InfoOpt::constraints),
+                    command("all").set(infoOpt, InfoOpt::all)));
 
-enum stateOption {
-};
+auto changestate = (command("state").set(selected, CommandType::state),
+             one_of(command("next").set(stateOpt, StateOpt::next),
+                    command("prev").set(stateOpt, StateOpt::prev)));
 
-std::pair<const char *, void(KDebugger::*)(CommandBuffer &)> commandTable[] = 
-{
-    {"c",     &KDebugger::handleContinue},
-    {"r",     &KDebugger::handleRun},
-    {"q",     &KDebugger::handleQuit},
-    {"b",     &KDebugger::handleBreakpoint},
-    {"info",  &KDebugger::handleInfo},
-    {"help",  &KDebugger::handleHelp},
-    {"state", &KDebugger::handleState},
-    {0,       &KDebugger::handleHelp}
-};
+auto cli = one_of(contcmd , runcmd , quitcmd , bcmd , help , info, changestate);
 
-std::pair<const char *, Option> OptStrs[] = 
-{
-    {"",            all},
-    {"stack",       stack},
-    {"constraints", constraints},
-    {"breakpoints", breakpoints},
-
-    {"next",        next},
-    {"prev",        prev},
-
-    {0,             invalid}
-};
 }
 
 extern "C" void set_halt_execution(bool);
@@ -125,41 +110,54 @@ const std::set<Breakpoint> & KDebugger::breakpoints() {
     return m_breakpoints;
 }
 
-void KDebugger::handleCommand(CommandBuffer &cmd) {
-    auto handler = cmd.search(commandTable);
-    (this->*handler)(cmd);
+void KDebugger::handleCommand(std::vector<std::string> &input) {
+    auto res = clipp::parse(input, cli);
+    if (res) {
+        switch(selected) {
+            case CommandType::cont:
+                handleContinue();
+                break;
+            case CommandType::run:
+                handleRun();
+                break;
+            case CommandType::quit:
+                handleQuit();
+                break;
+            case CommandType::breakpoint:
+                handleBreakpoint(bpString);
+                break;
+            case CommandType::info:
+                handleInfo(infoOpt);
+                break;
+            case CommandType::state:
+                handleState(stateOpt);
+                break;
+            case CommandType::help:
+                handleHelp();
+                break;
+            default:
+                llvm::outs() << "invalid\n";
+        }
+    } 
 }
 
-void KDebugger::handleContinue(CommandBuffer &cmd) {
-    if (!cmd.endOfLine()) {
-        llvm::outs() << "\"continue\" does not take arguments\n";
-        return;
-    }
+void KDebugger::handleContinue() {
     prompt.breakFromLoop();
 }
 
-void KDebugger::handleRun(CommandBuffer &cmd) {
-    if (!cmd.endOfLine()) {
-        llvm::outs() << "\"run\" does not take arguments\n";
-        return;
-    }
+void KDebugger::handleRun() {
     m_breakpoints.clear();
     prompt.breakFromLoop();
 }
 
-void KDebugger::handleQuit(CommandBuffer &cmd) {
-    if (!cmd.endOfLine()) {
-        llvm::outs() << "\"quit\" does not take arguments\n";
-        return;
-    }
+void KDebugger::handleQuit() {
     set_halt_execution(true);
     prompt.breakFromLoop();
 }
 
-void KDebugger::handleBreakpoint(CommandBuffer &cmd) {
+void KDebugger::handleBreakpoint(std::string &input) {
     std::regex breakpointRegex("(\\w*\\.\\w*)\\:([0-9]+)");
     std::cmatch matches;
-    std::string input(cmd.nextToken());
     if (std::regex_search(input.c_str(), matches, breakpointRegex)) {
         auto res = m_breakpoints.emplace(matches.str(1), (unsigned)stoi(matches.str(2)));
         klee_message(res.second ? "Breakpoint set" : "Breakpoint already exist");
@@ -168,13 +166,12 @@ void KDebugger::handleBreakpoint(CommandBuffer &cmd) {
     }
 }
 
-void KDebugger::handleInfo(CommandBuffer &cmd) {
-    auto info = cmd.search(OptStrs);
-    switch (info) {
-        case stack: printStack(); break;
-        case constraints: printConstraints(); break;
-        case Option::breakpoints: printBreakpoints(); break;
-        case all: 
+void KDebugger::handleInfo(InfoOpt opt) {
+    switch (opt) {
+        case InfoOpt::stack: printStack(); break;
+        case InfoOpt::constraints: printConstraints(); break;
+        case InfoOpt::breakpoints: printBreakpoints(); break;
+        case InfoOpt::all:
             printStack();
             llvm::outs() << "\n";
             printConstraints();
@@ -184,15 +181,11 @@ void KDebugger::handleInfo(CommandBuffer &cmd) {
     }
 }
 
-void KDebugger::handleState(CommandBuffer &cmd) {
+void KDebugger::handleState(StateOpt dir) {
     nextState();
 }
 
-void KDebugger::handleHelp(CommandBuffer &cmd) {
-    if (!cmd.endOfLine()) {
-        llvm::outs() << "\"help\" does not take arguments\n";
-        return;
-    }
+void KDebugger::handleHelp() {
     klee_message("\n  Type r to run the program.\n"
                  "  Type q to quit klee.\n"
                  "  Type c to continue until the next breakpoint.\n"
