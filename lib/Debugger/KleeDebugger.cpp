@@ -63,7 +63,10 @@ KDebugger::KDebugger() :
 void KDebugger::selectState() {
     if (klee_interrupted()) {
         set_halt_execution(false);
-        prompt.show("KLEE: ctrl-c detected, execution interrupted> ");
+        int rc = prompt.show("KLEE: ctrl-c detected, execution interrupted> ");
+        if (rc) {
+            set_halt_execution(true);
+        }
     } else {
         checkBreakpoint(*searcher->currentState());
     }
@@ -75,8 +78,11 @@ void KDebugger::showPrompt(const char *prompt) {
 }
 
 void KDebugger::showPromptAtBreakpoint(const Breakpoint &breakpoint) {
-    std::string prompt = breakpoint.file + ", line " + std::to_string((int)breakpoint.line) + "> ";
-    showPrompt(prompt.c_str());
+    std::string promptMsg = breakpoint.file + ", line " + std::to_string((int)breakpoint.line) + "> ";
+    int rc = prompt.show(promptMsg.c_str());
+    if (rc) {
+        set_halt_execution(true);
+    }
 }
 
 void KDebugger::checkBreakpoint(ExecutionState &state) {

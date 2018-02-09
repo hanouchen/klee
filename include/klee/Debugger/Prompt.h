@@ -17,7 +17,7 @@ class Prompt {
 
 public:
     Prompt(CommandHandler handler);
-    void show(const char *line = DEFAULT);
+    int show(const char *line = DEFAULT);
     void breakFromLoop();
 
 private:    

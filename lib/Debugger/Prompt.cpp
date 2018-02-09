@@ -8,7 +8,8 @@ namespace klee {
 
 Prompt::Prompt(CommandHandler handler) : handler(handler), breakLoop(false) {};
 
-void Prompt::show(const char *line) {
+int Prompt::show(const char *line) {
+    breakLoop = false;
     char *cmd;
     while((cmd = linenoise(line)) != NULL) {
         if (cmd[0] != '\0') {
@@ -22,10 +23,10 @@ void Prompt::show(const char *line) {
         }
         linenoiseFree(cmd); 
         if (breakLoop) {
-            breakLoop = false;
             break;
         }
     }
+    return breakLoop ? 0 : -1;
 }
 
 void Prompt::breakFromLoop() {
