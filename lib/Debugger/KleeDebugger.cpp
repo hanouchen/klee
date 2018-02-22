@@ -51,6 +51,7 @@ auto cli = one_of(contcmd , runcmd , quitcmd , bcmd , help , info, changestate);
 }
 
 extern "C" void set_halt_execution(bool);
+extern "C" void set_interrupted(bool);
 extern "C" bool klee_interrupted();
 
 KDebugger::KDebugger() : 
@@ -62,6 +63,7 @@ KDebugger::KDebugger() :
 
 void KDebugger::selectState() {
     if (klee_interrupted()) {
+        set_interrupted(false);
         set_halt_execution(false);
         int rc = prompt.show("KLEE: ctrl-c detected, execution interrupted> ");
         if (rc) {
@@ -211,7 +213,7 @@ void KDebugger::handleHelp() {
                  "  Type q to quit klee.\n"
                  "  Type c to continue until the next breakpoint.\n"
                  "  Type b <filename>:<linenumber> to add a breakpoint.\n"
-                 "  Type info [stack | constraints] to show information about the current execution state.\n"
+                 "  Type info [stack | constraints | breakpoints | stats] to show information about the current execution state.\n"
                  "  Type state [prev | next] to traverse available states.\n");
 }
 

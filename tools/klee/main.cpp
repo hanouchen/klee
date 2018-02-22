@@ -931,6 +931,11 @@ bool klee_interrupted() {
 }
 
 extern "C"
+void set_interrupted(bool value) {
+  interrupted = value;
+}
+
+extern "C"
 void set_halt_execution(bool halt) {
   theInterpreter->setHaltExecution(halt);
 }
