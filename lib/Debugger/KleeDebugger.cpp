@@ -76,7 +76,10 @@ void KDebugger::selectState() {
 
 void KDebugger::showPrompt(const char *prompt) {
     assert(prompt);
-    this->prompt.show(prompt);
+    int rc = this->prompt.show(prompt);
+    if (rc) {
+        set_halt_execution(true);
+    }
 }
 
 void KDebugger::showPromptAtBreakpoint(const Breakpoint &breakpoint) {
@@ -162,10 +165,12 @@ void KDebugger::handleCommand(std::vector<std::string> &input) {
 }
 
 void KDebugger::handleContinue() {
+    llvm::outs() << "Continue execution..\n";
     prompt.breakFromLoop();
 }
 
 void KDebugger::handleRun() {
+    llvm::outs() << "Continue execution to end of program..\n";
     m_breakpoints.clear();
     prompt.breakFromLoop();
 }
@@ -204,6 +209,10 @@ void KDebugger::handleInfo(InfoOpt opt) {
 
 void KDebugger::handleState(StateOpt dir) {
     searcher->nextIter();
+    auto *state = searcher->currentState();
+    llvm::outs() <<  "Moved to state @"; 
+    llvm::outs().write_hex((unsigned long long)state);
+    llvm::outs() << "\n";
 }
 
 void KDebugger::printStats() {}
