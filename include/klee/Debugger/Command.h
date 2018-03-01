@@ -17,6 +17,7 @@ namespace klee {
 enum class CommandType {
     cont, 
     run, 
+    step,
     quit, 
     breakpoint, 
     info, 

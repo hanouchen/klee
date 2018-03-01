@@ -14,6 +14,7 @@
 namespace klee {
 class DebugSearcher;
 class StatsTracker;
+class KInstruction;
 
 namespace {
 const char * DEFAULT_PROMPT = "klee debugger, type h for help> ";
@@ -25,12 +26,14 @@ public:
     KDebugger();
 
     void selectState();
+    void selectBranch(int, std::string &);
 
     void showPrompt(const char *prompt = DEFAULT_PROMPT);
-    void showPromptAtBreakpoint(const Breakpoint &breakpoint);
     void checkBreakpoint(ExecutionState &state);
     void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
     void setSearcher(DebugSearcher *searcher);
+    void showPromptAtInstruction(const KInstruction *);
+    void handleCommand(std::vector<std::string> &, std::string &);
     const std::set<Breakpoint> &breakpoints();
 
 
@@ -40,20 +43,20 @@ private:
     DebugSearcher *searcher;
     StatsTracker *statsTracker;
     std::set<Breakpoint> m_breakpoints;
-    bool initialPrompt;
+    bool step;
 
-    void handleCommand(std::vector<std::string> &);
     void handleContinue();
     void handleRun();
+    void handleStep();
     void handleQuit();
     void handleHelp();
     void handleBreakpoint(std::string &);
     void handleInfo(InfoOpt opt);
     void printStats();
-    void handleState(StateOpt opt);
+    void handleState(StateOpt opt, std::string &);
     void printBreakpoints();
-    void printStack();
-    void printConstraints();
+    void printStack(ExecutionState *);
+    void printConstraints(ExecutionState *);
 };
 }
 #endif

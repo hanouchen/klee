@@ -6,22 +6,23 @@
 #include "klee/Debugger/Command.h"
 
 namespace klee {
+class KDebugger;
 
 namespace {
 const char *DEFAULT = "klee debugger, type h for help> ";
 };
 
-typedef std::function<void(std::vector<std::string> &)> CommandHandler;
 
 class Prompt {
 
 public:
-    Prompt(CommandHandler handler);
+    // static void parseInput(std::vector<std::string> &, const char *);
+    Prompt(KDebugger *);
     int show(const char *line = DEFAULT);
     void breakFromLoop();
 
 private:    
-    CommandHandler handler;
+    KDebugger *debugger;
     bool breakLoop;
 };
 

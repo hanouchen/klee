@@ -95,6 +95,7 @@ ExecutionState &DebugSearcher::selectState() {
 void DebugSearcher::update(ExecutionState *current,
     const std::vector<ExecutionState *> &addedStates,
     const std::vector<ExecutionState *> &removedStates) {
+  if (current) newStateCount = addedStates.size();
   states.insert(states.end(),
                 addedStates.begin(),
                 addedStates.end());
@@ -105,26 +106,30 @@ void DebugSearcher::update(ExecutionState *current,
     if (es == states.back()) {
       states.pop_back();
     } else {
-      bool ok = false;
+      // bool ok = false;
 
       for (std::vector<ExecutionState*>::iterator it = states.begin(),
              ie = states.end(); it != ie; ++it) {
         if (es==*it) {
           states.erase(it);
-          ok = true;
+          // ok = true;
           break;
         }
       }
 
-      (void) ok;
-      assert(ok && "invalid state removed");
+      // (void) ok;
+      // assert(ok && "invalid state removed");
     }
   }
   iter = states.end() - 1;
 }
 
-void DebugSearcher::setIter(const ExecutionState *state) {
-  iter = std::find(states.begin(), states.end(), state);
+void DebugSearcher::selectNewState(int idx, bool terminateOther) {
+  iter = states.end() - newStateCount + idx - 2;
+  if (terminateOther) {
+    states.erase(states.begin(), iter);
+    states.erase(iter + 1, states.end());
+  }
 }
 
 void DebugSearcher::nextIter() {
@@ -135,6 +140,12 @@ void DebugSearcher::nextIter() {
 ExecutionState *DebugSearcher::currentState() {
   assert(iter != states.end());
   return *iter;
+}
+
+std::vector<ExecutionState *>::iterator DebugSearcher::newStatesBegin() {
+  auto it = states.end();
+  it = it - newStateCount;
+  return it;
 }
 
 bool DebugSearcher::empty() { return states.empty(); }
