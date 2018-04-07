@@ -100,6 +100,7 @@ Searcher *getNewSearcher(Searcher::CoreSearchType type, Executor &executor) {
 Searcher *klee::constructUserSearcher(Executor &executor) {
   if (executor.getDebugger()) {
     DebugSearcher *debugSearcher = new DebugSearcher();
+    debugSearcher->setExecutor(&executor);
     executor.getDebugger()->setSearcher(debugSearcher);
     return debugSearcher;
   }

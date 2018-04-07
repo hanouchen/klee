@@ -1,28 +1,19 @@
 #ifndef KLEE_COMMAND_H
 #define KLEE_COMMAND_H
-#include <iostream>
-#include <assert.h>
-#include <cstring>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <iostream>
-#include <functional>
-#include <sstream>
-#include <algorithm>
-#include <iterator>
+#include <klee/Debugger/clipp.h>
 
 namespace klee {
 
-enum class CommandType {
+enum CommandType {
     cont, 
     run, 
     step,
     quit, 
     breakpoint, 
+    print,
     info, 
-    help, 
     state, 
+    help, 
     none
 };
 
@@ -40,6 +31,30 @@ enum class StateOpt {
     prev,
     invalid
 };
+
+namespace debugcommands {
+
+extern CommandType selected;
+extern std::vector<std::string> extraArgs;
+extern int stateIdx;
+extern std::string bpString;
+extern std::string var;
+extern bool terminateOtherStates;
+extern InfoOpt infoOpt;
+extern StateOpt dir;
+
+extern clipp::group continueCmd;
+extern clipp::group runCmd;
+extern clipp::group stepCmd;
+extern clipp::group quitCmd;
+extern clipp::group helpCmd;
+extern clipp::group breakCmd;
+extern clipp::group infoCmd;
+extern clipp::group stateCmd;
+extern clipp::group cmdParser;
+extern clipp::group branchSelection;
+
+}
 
 }
 #endif

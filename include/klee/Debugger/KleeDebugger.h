@@ -11,10 +11,14 @@
 #include "klee/Debugger/Command.h"
 #include "klee/Debugger/Prompt.h"
 
+#include "llvm/IR/Module.h"
+
 namespace klee {
 class DebugSearcher;
 class StatsTracker;
 class KInstruction;
+class KInstIterator;
+class Executor;
 
 namespace {
 const char * DEFAULT_PROMPT = "klee debugger, type h for help> ";
@@ -31,10 +35,10 @@ public:
     void showPrompt(const char *prompt = DEFAULT_PROMPT);
     void checkBreakpoint(ExecutionState &state);
     void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
-    void setSearcher(DebugSearcher *searcher);
+    void setSearcher(DebugSearcher *);
+    void setModule(llvm::Module *module) {this->module = module; }
     void showPromptAtInstruction(const KInstruction *);
     void handleCommand(std::vector<std::string> &, std::string &);
-    const std::set<Breakpoint> &breakpoints();
 
 
 private:
@@ -42,18 +46,21 @@ private:
     Prompt prompt;
     DebugSearcher *searcher;
     StatsTracker *statsTracker;
-    std::set<Breakpoint> m_breakpoints;
+    std::set<Breakpoint> breakpoints;
+    llvm::Module *module;
     bool step;
+    static void (KDebugger::*processors[])(std::string &);
 
-    void handleContinue();
-    void handleRun();
-    void handleStep();
-    void handleQuit();
-    void handleHelp();
-    void handleBreakpoint(std::string &);
-    void handleInfo(InfoOpt opt);
-    void printStats();
-    void handleState(StateOpt opt, std::string &);
+    void processContinue(std::string &);
+    void processRun(std::string &);
+    void processStep(std::string &);
+    void processQuit(std::string &);
+    void processHelp(std::string &);
+    void processBreakpoint(std::string &);
+    void processPrint(std::string &);
+    void processInfo(std::string &);
+    void processState(std::string &);
+
     void printBreakpoints();
     void printStack(ExecutionState *);
     void printConstraints(ExecutionState *);

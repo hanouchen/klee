@@ -8,8 +8,14 @@
 // FIXME: Probably not a good idea?
 #include "../Core/Searcher.h"
 #include "../Core/StatsTracker.h"
+#include "../Core/Executor.h"
+#include "../Core/Memory.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/ValueSymbolTable.h"
 
 #include "klee/util/ExprPPrinter.h"
 #include "klee/Debugger/clipp.h"
@@ -22,41 +28,6 @@
 namespace klee {
 
 namespace {
-
-using namespace clipp;
-CommandType selected = CommandType::none;
-InfoOpt infoOpt = InfoOpt::all;
-StateOpt stateOpt = StateOpt::invalid;
-std::string bpString;
-int stateIdx = 0;
-bool terminateOtherStates = false;
-
-auto contcmd = (command("c").set(selected, CommandType::cont));
-auto runcmd = (command("r").set(selected, CommandType::run));
-auto stepcmd = (command("s").set(selected, CommandType::step));
-auto quitcmd = (command("q").set(selected, CommandType::quit));
-auto help = (command("h").set(selected, CommandType::help));
-auto bcmd = (command("b").set(selected, CommandType::breakpoint), 
-             values("", bpString));
-auto info = (command("info").set(selected, CommandType::info),
-             one_of(option("breakpoints").set(infoOpt, InfoOpt::breakpoints),
-                    option("stack").set(infoOpt, InfoOpt::stack),
-                    option("constraints").set(infoOpt, InfoOpt::constraints),
-                    option("stats").set(infoOpt, InfoOpt::statistics),
-                    option("all").set(infoOpt, InfoOpt::all)));
-
-auto changestate = (command("state").set(selected, CommandType::state),
-             one_of(command("next").set(stateOpt, StateOpt::next),
-                    command("prev").set(stateOpt, StateOpt::prev)));
-
-auto cli = one_of(contcmd , runcmd , stepcmd, quitcmd , bcmd , help , info, changestate);
-
-auto select_branch = (
-    value("State Number", stateIdx),
-    option("-t", "--terminate", "-T").set(terminateOtherStates)
-);
-
-
 std::string getSourceLine(const std::string &file, unsigned line) {
     std::string res("");
     std::ifstream in;
@@ -83,18 +54,35 @@ std::string getFileFromPath(const std::string &fullPath) {
     return "Unkown file";
 }
 
+const char *MSG_INTERRUPTED 
+    = "KLEE: ctrl-c detected, execution interrupted> ";
+const char *MSG_SELECT_STATE
+    = "Select a state to continue by entering state number:";
 
 }
 
 extern "C" void set_halt_execution(bool);
 extern "C" void set_interrupted(bool);
 extern "C" bool klee_interrupted();
+using namespace debugcommands;
+
+void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
+    &KDebugger::processContinue,
+    &KDebugger::processRun,
+    &KDebugger::processStep,
+    &KDebugger::processQuit,
+    &KDebugger::processBreakpoint,
+    &KDebugger::processPrint,
+    &KDebugger::processInfo,
+    &KDebugger::processState,
+    &KDebugger::processHelp,
+};
 
 KDebugger::KDebugger() : 
     prompt(this),
     searcher(0),
     statsTracker(0),
-    m_breakpoints(), 
+    breakpoints(), 
     step(false) {}
 
 void KDebugger::selectState() {
@@ -102,7 +90,7 @@ void KDebugger::selectState() {
         step = false;
         set_interrupted(false);
         set_halt_execution(false);
-        prompt.show("KLEE: ctrl-c detected, execution interrupted> ");
+        prompt.show(MSG_INTERRUPTED);
     } else if (step) {
         // Check if execution branched.
         if (searcher->newStates()) {
@@ -110,14 +98,14 @@ void KDebugger::selectState() {
             llvm::outs() << "Execution branched\n";
             auto it = searcher->newStatesBegin();
             it--;
-            for (int i = 0; i <= searcher->newStates(); ++i) {
+            for (unsigned i = 0; i <= searcher->newStates(); ++i) {
                 llvm::outs().changeColor(llvm::raw_ostream::CYAN);
                 llvm::outs() << "State #" << (i + 1) << ", ";
                 llvm::outs().changeColor(llvm::raw_ostream::WHITE);
                 printConstraints(*it++);
                 llvm::outs() << "\n";
             }
-            if (prompt.show("Select a state to continue by entering state number:")) {
+            if (prompt.show(MSG_SELECT_STATE)) {
                 return;
             }
         }
@@ -140,20 +128,15 @@ void KDebugger::showPromptAtInstruction(const KInstruction *ki) {
 }
 
 void KDebugger::checkBreakpoint(ExecutionState &state) {
-    if (m_breakpoints.empty() || !state.pc) {
+    if (breakpoints.empty() || !state.pc) {
         return;
     }
     auto ki = state.pc;
     Breakpoint bp(getFileFromPath(ki->info->file), ki->info->line);
-    if (state.lastBreakpoint != bp && m_breakpoints.find(bp) != m_breakpoints.end()) {
+    if (state.lastBreakpoint != bp && breakpoints.find(bp) != breakpoints.end()) {
         state.lastBreakpoint = bp;
         showPromptAtInstruction(ki);
     }
-}
-
-
-const std::set<Breakpoint> & KDebugger::breakpoints() {
-    return m_breakpoints;
 }
 
 void KDebugger::setSearcher(DebugSearcher *searcher) {
@@ -164,73 +147,38 @@ void KDebugger::setSearcher(DebugSearcher *searcher) {
 
 void KDebugger::handleCommand(std::vector<std::string> &input, std::string &msg) {
     if (step && searcher->newStates()) {
-        auto res = clipp::parse(input, select_branch);
+        auto res = clipp::parse(input, branchSelection);
         if (res) {
             selectBranch(stateIdx, msg);
         }
         return;
     }
-    auto res = clipp::parse(input, cli);
-    if (res) {
-        switch(selected) {
-            case CommandType::cont:
-                handleContinue();
-                break;
-            case CommandType::run:
-                handleRun();
-                break;
-            case CommandType::step:
-                handleStep();
-                break;
-            case CommandType::quit:
-                handleQuit();
-                break;
-            case CommandType::breakpoint:
-                handleBreakpoint(bpString);
-                break;
-            case CommandType::info:
-                handleInfo(infoOpt);
-                break;
-            case CommandType::state:
-                handleState(stateOpt, msg);
-                break;
-            case CommandType::help:
-                handleHelp();
-                break;
-            default:
-                llvm::outs() << "invalid\n";
+    auto res = clipp::parse(input, cmdParser);
+    if (res && extraArgs.empty()) {
+        (this->*(KDebugger::processors[(int)selected]))(msg);
+    } else {
+        if (extraArgs.empty() && res.any_blocked()) {
+            llvm::outs() << "Unkown command: \"" << input[0] << "\"\n";
         }
-    }  else {
-        if (res.begin()->blocked()) {
-            llvm::outs() << "Unkown command: " << res.begin()->arg() << "\n";
-        } else {
-            llvm::outs() << res.begin()->arg() << ": ";
-            for(const auto& m : res) {
-                if (m.blocked() && m.conflict()) {
-                    llvm::outs() << "invalid argument(s)\n";
-                    return;
-                } else if (m.blocked()) {
-                    llvm::outs() << "too many arguments\n";
-                    return;
-                }
-            } 
-            llvm::outs() << "argument required\n";
+        for (auto const & arg: extraArgs) {
+            llvm::outs() << "Unsupported arguments: " << arg << "\n";
         }
+        extraArgs.clear();
     }
 }
 
-void KDebugger::handleContinue() {
+void KDebugger::processContinue(std::string &) {
     llvm::outs() << "Continue execution..\n";
     prompt.breakFromLoop();
 }
 
-void KDebugger::handleRun() {
+void KDebugger::processRun(std::string &) {
     llvm::outs() << "Continue execution to end of program..\n";
-    m_breakpoints.clear();
+    breakpoints.clear();
     prompt.breakFromLoop();
 }
 
-void KDebugger::handleStep() {
+void KDebugger::processStep(std::string &) {
     llvm::outs() << "Stepping..\n";
     step = true;
     auto state = searcher->currentState();
@@ -246,25 +194,37 @@ void KDebugger::handleStep() {
     prompt.breakFromLoop();
 }
 
-void KDebugger::handleQuit() {
+void KDebugger::processQuit(std::string &) {
     set_halt_execution(true);
     prompt.breakFromLoop();
 }
 
-void KDebugger::handleBreakpoint(std::string &input) {
+void KDebugger::processBreakpoint(std::string &) {
     std::regex breakpointRegex("(\\w*\\.\\w*)\\:([0-9]+)");
     std::cmatch matches;
-    if (std::regex_search(input.c_str(), matches, breakpointRegex)) {
-        auto res = m_breakpoints.emplace(matches.str(1), (unsigned)stoi(matches.str(2)));
+    if (std::regex_search(bpString.c_str(), matches, breakpointRegex)) {
+        auto res = breakpoints.emplace(matches.str(1), (unsigned)stoi(matches.str(2)));
         klee_message(res.second ? "Breakpoint set" : "Breakpoint already exist");
     } else {
         klee_message("Invalid breakpoint format");
     }
 }
 
-void KDebugger::handleInfo(InfoOpt opt) {
+void KDebugger::processPrint(std::string &) {
+    llvm::outs() << "Printing variable: " << var << "\n";
+    auto objs = searcher->currentState()->addressSpace.objects;
+    auto st = searcher->currentState()->stack;
+    auto stackFrame = searcher->currentState()->stack.back();
+    auto func = stackFrame.kf->function;
+    llvm::ValueSymbolTable &symbolTable = func->getValueSymbolTable();
+    llvm::StringRef sRef(var.c_str());
+    auto *val = symbolTable.lookup(sRef);
+    val->dump();
+}
+
+void KDebugger::processInfo(std::string &) {
     auto state = searcher->currentState();
-    switch (opt) {
+    switch (infoOpt) {
         case InfoOpt::stack: printStack(state); break;
         case InfoOpt::constraints: printConstraints(state); break;
         case InfoOpt::breakpoints: printBreakpoints(); break;
@@ -277,9 +237,10 @@ void KDebugger::handleInfo(InfoOpt opt) {
         default:
             llvm::outs() << "Invalid info option, type \"h\" for help.\n";
     }
+    infoOpt = InfoOpt::all;
 }
 
-void KDebugger::handleState(StateOpt dir, std::string &msg) {
+void KDebugger::processState(std::string &msg) {
     searcher->nextIter();
     auto *state = searcher->currentState();
     llvm::outs() <<  "Moved to state @"; 
@@ -291,7 +252,9 @@ void KDebugger::handleState(StateOpt dir, std::string &msg) {
 
 void KDebugger::selectBranch(int idx, std::string &msg) {
     unsigned int newStates = searcher->newStates();
-    if (idx < 1 || idx > (1 + newStates)) {
+    if (idx < 1 || idx > (1 + (int)newStates)) {
+        llvm::outs() << "Please enter a number in the range [1, " 
+            << (1 + newStates) << "]\n";
         return;
     }
 
@@ -303,20 +266,16 @@ void KDebugger::selectBranch(int idx, std::string &msg) {
     prompt.breakFromLoop();
 }
 
-void KDebugger::printStats() {}
-
-void KDebugger::handleHelp() {
-    klee_message("\n  Type r to run the program.\n"
-                 "  Type q to quit klee.\n"
-                 "  Type c to continue until the next breakpoint.\n"
-                 "  Type b <filename>:<linenumber> to add a breakpoint.\n"
-                 "  Type info [stack | constraints | breakpoints | stats] to show information about the current execution state.\n"
-                 "  Type state [prev | next] to traverse available states.\n");
+void KDebugger::processHelp(std::string &) {
+    using namespace clipp;
+    auto fmt = doc_formatting{}.start_column(6).doc_column(26).paragraph_spacing(0);;
+    llvm::outs () <<"USAGE:\n" << usage_lines(cmdParser) << "\n\n";
+    llvm::outs() << "DOCUMENTATION:\n" << documentation(cmdParser, fmt);;
 }
 
 void KDebugger::printBreakpoints() {
-    klee_message("%zu breakpoints set", m_breakpoints.size());
-    for (auto & bp : m_breakpoints) {
+    klee_message("%zu breakpoints set", breakpoints.size());
+    for (auto & bp : breakpoints) {
         klee_message("%s at line %u", bp.file.c_str(), bp.line);
     }
 }
