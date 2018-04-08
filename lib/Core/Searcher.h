@@ -103,6 +103,7 @@ namespace klee {
               const std::vector<ExecutionState *> &addedStates,
               const std::vector<ExecutionState *> &removedStates);
     bool empty();
+    std::vector<ExecutionState *> &getStates() { return states; }
     void printName(llvm::raw_ostream &os) {
       os << "DebugSearcher\n";
     }

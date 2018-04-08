@@ -84,6 +84,8 @@ group infoCmd = (
     one_of(
         option("breakpoints").set(infoOpt, InfoOpt::breakpoints).
         doc("List all breakpoints"),
+        option("states").set(infoOpt, InfoOpt::states).
+        doc("List all states"),
         option("stack").set(infoOpt, InfoOpt::stack).
         doc("Dump the stack of the current execution state"),
         option("constraints").set(infoOpt, InfoOpt::constraints).

@@ -83,7 +83,7 @@ KDebugger::KDebugger() :
     searcher(0),
     statsTracker(0),
     breakpoints(), 
-    step(false) {}
+    step(true) {}
 
 void KDebugger::selectState() {
     if (klee_interrupted()) {
@@ -94,15 +94,15 @@ void KDebugger::selectState() {
     } else if (step) {
         // Check if execution branched.
         if (searcher->newStates()) {
+            unsigned int newStates = searcher->newStates();
+            auto states = searcher->getStates();
             llvm::outs().changeColor(llvm::raw_ostream::GREEN);
             llvm::outs() << "Execution branched\n";
-            auto it = searcher->newStatesBegin();
-            it--;
-            for (unsigned i = 0; i <= searcher->newStates(); ++i) {
+            unsigned int cnt = 0;
+            for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
                 llvm::outs().changeColor(llvm::raw_ostream::CYAN);
-                llvm::outs() << "State #" << (i + 1) << ", ";
-                llvm::outs().changeColor(llvm::raw_ostream::WHITE);
-                printConstraints(*it++);
+                llvm::outs() << "Enter " << ++cnt << " to select ";
+                printState(*it);
                 llvm::outs() << "\n";
             }
             if (prompt.show(MSG_SELECT_STATE)) {
@@ -182,15 +182,7 @@ void KDebugger::processStep(std::string &) {
     llvm::outs() << "Stepping..\n";
     step = true;
     auto state = searcher->currentState();
-    auto info = state->pc->info;
-    std::string line = getSourceLine(info->file, info->line);
-    size_t first = line.find_first_not_of(' ');
-    std::string trimmed = line.substr(first, line.size() - first + 1);
-    llvm::outs() << "source: " << trimmed << "\n";
-    state->pc->printFileLine();
-    llvm::outs() << "assembly line:";
-    state->pc->inst->print(llvm::outs());
-    llvm::outs() << "\n";
+    printCode(state);
     prompt.breakFromLoop();
 }
 
@@ -228,12 +220,9 @@ void KDebugger::processInfo(std::string &) {
         case InfoOpt::stack: printStack(state); break;
         case InfoOpt::constraints: printConstraints(state); break;
         case InfoOpt::breakpoints: printBreakpoints(); break;
+        case InfoOpt::states: printAllStates(); break;
         case InfoOpt::statistics: this->statsTracker->printStats(llvm::outs()); break;
-        case InfoOpt::all:
-            printStack(state);
-            llvm::outs() << "\n";
-            printConstraints(state);
-            break;
+        case InfoOpt::all: printState(state); break;
         default:
             llvm::outs() << "Invalid info option, type \"h\" for help.\n";
     }
@@ -259,7 +248,8 @@ void KDebugger::selectBranch(int idx, std::string &msg) {
     }
 
     searcher->selectNewState(idx, terminateOtherStates);
-    llvm::outs() << "You selected state #" << idx << ".\n";
+    auto state = *(searcher->getStates().end() - newStates + idx - 2);
+    llvm::outs() << "You selected state @" << state << ".\n";
     if (terminateOtherStates) {
         llvm::outs() << "All other states are terminated.\n";
     }
@@ -280,18 +270,48 @@ void KDebugger::printBreakpoints() {
     }
 }
 
-void KDebugger::printStack(ExecutionState *state) {
-    // auto state = searcher->currentState();
+void KDebugger::printAllStates() {
+    llvm::outs().changeColor(llvm::raw_ostream::GREEN);
+    llvm::outs() << "Total number of states: " << searcher->getStates().size();
+    llvm::outs() << "\n";
+    for (auto state : searcher->getStates()) {
+        printState(state);
+        llvm::outs() << "\n";
+    }
+}
+
+void KDebugger::printState(ExecutionState *state) {
     llvm::outs().changeColor(llvm::raw_ostream::CYAN);
-    llvm::outs() << "Stack dump:\n";
+    llvm::outs() << "state @" << state << ", ";
+    printConstraints(state);
+    llvm::outs() << "\n";
+    printCode(state);
+}
+
+void KDebugger::printCode(ExecutionState *state) {
+    auto info = state->pc->info;
+    std::string line = getSourceLine(info->file, info->line);
+    size_t first = line.find_first_not_of(' ');
+    std::string trimmed = line.substr(first, line.size() - first + 1);
+    llvm::outs() << "file: " << info->file << "\n";
+    llvm::outs() << "line: " << info->line << "\n";
+    llvm::outs() << "source: " << trimmed << "\n";
+    state->pc->printFileLine();
+    llvm::outs() << "assembly:";
+    state->pc->inst->print(llvm::outs());
+    llvm::outs() << "\n";
+}
+
+void KDebugger::printStack(ExecutionState *state) {
+    llvm::outs().changeColor(llvm::raw_ostream::CYAN);
+    llvm::outs() << "stack dump:\n";
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
     state->dumpStack(llvm::outs());
 }
 
 void KDebugger::printConstraints(ExecutionState *state) {
-    // auto state = searcher->currentState();
     llvm::outs().changeColor(llvm::raw_ostream::CYAN);
-    llvm::outs() << "Constraints for state:\n";
+    llvm::outs() << "constraints for state:\n";
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
     ExprPPrinter::printConstraints(llvm::outs(), state->constraints);
 }

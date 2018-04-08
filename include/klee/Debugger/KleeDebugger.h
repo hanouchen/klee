@@ -62,7 +62,10 @@ private:
     void processState(std::string &);
 
     void printBreakpoints();
+    void printAllStates();
+    void printState(ExecutionState *);
     void printStack(ExecutionState *);
+    void printCode(ExecutionState *);
     void printConstraints(ExecutionState *);
 };
 }
