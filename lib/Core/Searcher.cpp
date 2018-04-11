@@ -95,6 +95,7 @@ ExecutionState &DebugSearcher::selectState() {
 void DebugSearcher::update(ExecutionState *current,
     const std::vector<ExecutionState *> &addedStates,
     const std::vector<ExecutionState *> &removedStates) {
+  bool stateChanged = false;
   if (current) newStateCount = addedStates.size();
   states.insert(states.end(),
                 addedStates.begin(),
@@ -105,6 +106,7 @@ void DebugSearcher::update(ExecutionState *current,
     ExecutionState *es = *it;
     if (es == states.back()) {
       states.pop_back();
+      stateChanged = true;
     } else {
       bool ok = false;
 
@@ -122,6 +124,7 @@ void DebugSearcher::update(ExecutionState *current,
     }
   }
   iter = states.end() - 1;
+  if (stateChanged) llvm::outs() << "Moved to state @" << *iter << "\n";
 }
 
 void DebugSearcher::selectNewState(int idx, bool terminateOther) {

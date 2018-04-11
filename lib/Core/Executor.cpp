@@ -2787,6 +2787,7 @@ void Executor::terminateState(ExecutionState &state) {
     state.pc = state.prevPC;
 
     removedStates.push_back(&state);
+    llvm::outs() << "state @" << &state << " has terminated\n";
   } else {
     // never reached searcher, just delete immediately
     std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it3 = 
