@@ -86,6 +86,7 @@ class Executor : public Interpreter {
   friend class SpecialFunctionHandler;
   friend class StatsTracker;
   friend class MergeHandler;
+  friend class KDebugger;
 
 public:
   class Timer {

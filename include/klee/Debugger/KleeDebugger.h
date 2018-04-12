@@ -35,6 +35,7 @@ public:
     void showPrompt(const char *prompt = DEFAULT_PROMPT);
     void checkBreakpoint(ExecutionState &state);
     void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
+    void setExecutor(Executor *executor) { this->executor = executor; }
     void setSearcher(DebugSearcher *);
     void setModule(llvm::Module *module) {this->module = module; }
     void showPromptAtInstruction(const KInstruction *);
@@ -44,6 +45,7 @@ public:
 private:
 
     Prompt prompt;
+    Executor *executor;
     DebugSearcher *searcher;
     StatsTracker *statsTracker;
     std::set<Breakpoint> breakpoints;
@@ -60,6 +62,7 @@ private:
     void processPrint(std::string &);
     void processInfo(std::string &);
     void processState(std::string &);
+    void processTerminate(std::string &);
 
     void printBreakpoints();
     void printAllStates();

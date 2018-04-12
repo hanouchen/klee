@@ -9,9 +9,10 @@ namespace debugcommands {
 using namespace clipp;
 CommandType selected = CommandType::none;
 
-// Options for 'info' and 'state' commands
-InfoOpt infoOpt = InfoOpt::all;
+// Options for 'info', 'state', 'terminate' commands
+InfoOpt infoOpt = InfoOpt::state;
 StateOpt stateOpt = StateOpt::invalid;
+TerminateOpt termOpt = TerminateOpt::current;
 
 // String for breakpoint in the form of <file:line>
 std::string bpString = "";
@@ -92,7 +93,7 @@ group infoCmd = (
         doc("Print the constraints of the current execution state"),
         option("stats").set(infoOpt, InfoOpt::statistics).
         doc("Print the execution statistics of klee so far"),
-        option("all").set(infoOpt, InfoOpt::all).
+        option("state").set(infoOpt, InfoOpt::state).
         doc("Default option, "
             "dumps stack and prints constraints of current state\n").
         if_conflicted([] { 
@@ -115,6 +116,17 @@ group stateCmd = ((
         })).doc("state options:")),
     any_other(extraArgs));
 
+group terminateCmd = ((
+    command("terminate").set(selected, CommandType::terminate).
+    doc("Terminate current state"),
+    one_of(
+        option("current").set(termOpt, TerminateOpt::current).
+        doc("Terminal current execution state"),
+        option("other").set(termOpt, TerminateOpt::other).
+        doc("Terminal all but current execution state\n")
+    ).doc("terminate options:"),
+    any_other(extraArgs)));
+
 group cmdParser = one_of(
     continueCmd, 
     runCmd,
@@ -124,7 +136,8 @@ group cmdParser = one_of(
     breakCmd,
     printCmd,
     infoCmd,
-    stateCmd
+    stateCmd,
+    terminateCmd
 );
 
 group branchSelection = (

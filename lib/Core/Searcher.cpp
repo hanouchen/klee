@@ -86,7 +86,6 @@ void DFSSearcher::update(ExecutionState *current,
 }
 
 ExecutionState &DebugSearcher::selectState() { 
-  preSelectCallback();
   std::rotate(iter, iter + 1, states.end());
   iter = states.end() - 1;
   return *states.back(); 
@@ -124,24 +123,11 @@ void DebugSearcher::update(ExecutionState *current,
     }
   }
   iter = states.end() - 1;
-  if (stateChanged) llvm::outs() << "Moved to state @" << *iter << "\n";
+  if (stateChanged && states.size()) llvm::outs() << "Moved to state @" << *iter << "\n";
 }
 
 void DebugSearcher::selectNewState(int idx, bool terminateOther) {
   iter = states.end() - newStateCount + idx - 2;
-  if (terminateOther) {
-    // for (auto it = states.begin(); it != iter; ++it) {
-    //   executor->terminateState(**it);
-    // }
-    // for (auto it = iter + 1; it != states.end(); ++it) {
-    //   executor->terminateState(**it);
-    // }
-
-    // states.erase(states.begin(), iter);
-    // states.erase(states.begin() + 1, states.end());
-    // iter = states.begin();
-    // llvm::outs() << "Remaining state: " << states.size() << "\n";
-  }
 }
 
 void DebugSearcher::nextIter() {

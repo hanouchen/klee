@@ -75,6 +75,7 @@ void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
     &KDebugger::processPrint,
     &KDebugger::processInfo,
     &KDebugger::processState,
+    &KDebugger::processTerminate,
     &KDebugger::processHelp,
 };
 
@@ -141,8 +142,6 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
 
 void KDebugger::setSearcher(DebugSearcher *searcher) {
     this->searcher = searcher;
-    this->searcher->setPreSelectCallback(
-        std::bind(&KDebugger::selectState, this));
 }
 
 void KDebugger::handleCommand(std::vector<std::string> &input, std::string &msg) {
@@ -222,11 +221,11 @@ void KDebugger::processInfo(std::string &) {
         case InfoOpt::breakpoints: printBreakpoints(); break;
         case InfoOpt::states: printAllStates(); break;
         case InfoOpt::statistics: this->statsTracker->printStats(llvm::outs()); break;
-        case InfoOpt::all: printState(state); break;
+        case InfoOpt::state: printState(state); break;
         default:
             llvm::outs() << "Invalid info option, type \"h\" for help.\n";
     }
-    infoOpt = InfoOpt::all;
+    infoOpt = InfoOpt::state;
 }
 
 void KDebugger::processState(std::string &msg) {
@@ -254,6 +253,30 @@ void KDebugger::selectBranch(int idx, std::string &msg) {
         llvm::outs() << "All other states are terminated.\n";
     }
     prompt.breakFromLoop();
+}
+
+void KDebugger::processTerminate(std::string &) {
+    llvm::Twine msg("");
+    switch (termOpt) {
+        case TerminateOpt::current:
+            executor->terminateStateEarly(*searcher->currentState(), msg);
+            executor->updateStates(nullptr);
+            if (searcher->getStates().size() == 0) {
+                prompt.breakFromLoop();
+            }
+            break;
+        case TerminateOpt::other:
+            for (auto state : searcher->getStates()) {
+                if (state != searcher->currentState()) {
+                    executor->terminateStateEarly(*state, msg);
+                }
+            }
+            executor->updateStates(nullptr);
+            break;
+        default:
+            llvm::outs() << "Invalid terminate option\n";
+    }
+    termOpt = TerminateOpt::current;
 }
 
 void KDebugger::processHelp(std::string &) {

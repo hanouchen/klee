@@ -13,6 +13,7 @@ enum CommandType {
     print,
     info, 
     state, 
+    terminate,
     help, 
     none
 };
@@ -20,7 +21,7 @@ enum CommandType {
 enum class InfoOpt {
     stack,
     constraints,
-    all,
+    state,
     breakpoints,
     states,
     statistics,
@@ -30,6 +31,12 @@ enum class InfoOpt {
 enum class StateOpt {
     next,
     prev,
+    invalid
+};
+
+enum class TerminateOpt {
+    current,
+    other,
     invalid
 };
 
@@ -43,6 +50,7 @@ extern std::string var;
 extern bool terminateOtherStates;
 extern InfoOpt infoOpt;
 extern StateOpt dir;
+extern TerminateOpt termOpt;
 
 extern clipp::group continueCmd;
 extern clipp::group runCmd;
@@ -51,6 +59,7 @@ extern clipp::group quitCmd;
 extern clipp::group helpCmd;
 extern clipp::group breakCmd;
 extern clipp::group infoCmd;
+extern clipp::group terminateCmd;
 extern clipp::group stateCmd;
 extern clipp::group cmdParser;
 extern clipp::group branchSelection;

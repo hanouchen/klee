@@ -2678,6 +2678,14 @@ void Executor::run(ExecutionState &initialState) {
   searcher->update(0, newStates, std::vector<ExecutionState *>());
 
   while (!states.empty()) {
+    
+    if (debugger) {
+      debugger->selectState();
+      if (states.empty()) {
+        break;
+      }
+    }
+
     ExecutionState &state = searcher->selectState();
     if (haltExecution) break;
 

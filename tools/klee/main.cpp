@@ -1441,8 +1441,8 @@ int main(int argc, char **argv, char **envp) {
       KDebugger *debugger = new KDebugger();
       debugger->setModule(mainModule);
       interpreter->setDebugger(debugger);
-
     }
+
     interpreter->runFunctionAsMain(mainFn, pArgc, pArgv, pEnvp);
 
     while (!seeds.empty()) {
