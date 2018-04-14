@@ -9,10 +9,11 @@ namespace debugcommands {
 using namespace clipp;
 CommandType selected = CommandType::none;
 
-// Options for 'info', 'state', 'terminate' commands
+// Options for commands
 InfoOpt infoOpt = InfoOpt::state;
 StateOpt stateOpt = StateOpt::invalid;
 TerminateOpt termOpt = TerminateOpt::current;
+GenerateInputOpt generateInputOpt = GenerateInputOpt::char_array;
 
 // String for breakpoint in the form of <file:line>
 std::string bpString = "";
@@ -26,10 +27,6 @@ std::vector<std::string> extraArgs;
 // The index of the state that user chooses to continue
 // execution on when execution branches.
 int stateIdx = 0;
-
-// Whether the user wants to terminate all other states
-// other than the one he/she chose.
-bool terminateOtherStates = false;
 
 group continueCmd = (
     command("c", "continue").set(selected, CommandType::cont).
@@ -127,6 +124,16 @@ group terminateCmd = ((
     ).doc("terminate options:"),
     any_other(extraArgs)));
 
+group generateConcreteInputCmd = ((
+    command("generate-input").set(selected, CommandType::generate_input).
+    doc("Generate concrete input values for the current state"),
+    one_of(
+        option("int").set(generateInputOpt, GenerateInputOpt::integer).
+        doc("Show the concrete values in integers"),
+        option("hex-char").set(generateInputOpt, GenerateInputOpt::char_array)
+    ).doc("generate-input options:"),
+    any_other(extraArgs)));
+
 group cmdParser = one_of(
     continueCmd, 
     runCmd,
@@ -137,12 +144,12 @@ group cmdParser = one_of(
     printCmd,
     infoCmd,
     stateCmd,
-    terminateCmd
+    terminateCmd,
+    generateConcreteInputCmd
 );
 
 group branchSelection = (
     value("State Number", stateIdx),
-    option("-t", "--terminate", "-T").set(terminateOtherStates),
     any_other(extraArgs)
 );
 

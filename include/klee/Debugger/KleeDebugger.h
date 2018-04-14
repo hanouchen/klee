@@ -63,6 +63,7 @@ private:
     void processInfo(std::string &);
     void processState(std::string &);
     void processTerminate(std::string &);
+    void generateConcreteInput(std::string &);
 
     void printBreakpoints();
     void printAllStates();

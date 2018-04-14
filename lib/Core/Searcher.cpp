@@ -126,7 +126,7 @@ void DebugSearcher::update(ExecutionState *current,
   if (stateChanged && states.size()) llvm::outs() << "Moved to state @" << *iter << "\n";
 }
 
-void DebugSearcher::selectNewState(int idx, bool terminateOther) {
+void DebugSearcher::selectNewState(int idx) {
   iter = states.end() - newStateCount + idx - 2;
 }
 

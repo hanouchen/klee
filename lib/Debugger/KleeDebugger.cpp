@@ -12,6 +12,7 @@
 #include "../Core/Memory.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Format.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Value.h"
@@ -76,6 +77,7 @@ void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
     &KDebugger::processInfo,
     &KDebugger::processState,
     &KDebugger::processTerminate,
+    &KDebugger::generateConcreteInput,
     &KDebugger::processHelp,
 };
 
@@ -246,12 +248,9 @@ void KDebugger::selectBranch(int idx, std::string &msg) {
         return;
     }
 
-    searcher->selectNewState(idx, terminateOtherStates);
+    searcher->selectNewState(idx);
     auto state = *(searcher->getStates().end() - newStates + idx - 2);
     llvm::outs() << "You selected state @" << state << ".\n";
-    if (terminateOtherStates) {
-        llvm::outs() << "All other states are terminated.\n";
-    }
     prompt.breakFromLoop();
 }
 
@@ -279,6 +278,37 @@ void KDebugger::processTerminate(std::string &) {
     termOpt = TerminateOpt::current;
 }
 
+void KDebugger::generateConcreteInput(std::string &) {
+    
+    printConstraints(searcher->currentState());
+
+    std::vector<std::pair<std::string, std::vector<unsigned char>>> out;
+    bool success = executor->getSymbolicSolution(*searcher->currentState(), out);
+
+    if (!success) {
+        llvm::outs().changeColor(llvm::raw_ostream::RED);
+        llvm::outs() << "No satisfying input values found\n";
+        llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+        return;
+    }
+
+    if (!out.size()) {
+        return;
+    }
+
+    llvm::outs().changeColor(llvm::raw_ostream::CYAN);
+    llvm::outs() << "\nConcrete input value(s) that will reach this path:\n";
+    llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+
+    for (auto &p : out) {
+      llvm::outs() << p.first << " (size " << p.second.size() << "): ";
+      for (auto c : p.second) {
+        llvm::outs() << llvm::format("\\0x%02x", int(c));
+      }
+      llvm::outs() << "\n";
+    }
+}
+
 void KDebugger::processHelp(std::string &) {
     using namespace clipp;
     auto fmt = doc_formatting{}.start_column(6).doc_column(26).paragraph_spacing(0);;
@@ -298,6 +328,11 @@ void KDebugger::printAllStates() {
     llvm::outs() << "Total number of states: " << searcher->getStates().size();
     llvm::outs() << "\n";
     for (auto state : searcher->getStates()) {
+        if (state == searcher->currentState()) {
+            llvm::outs().changeColor(llvm::raw_ostream::GREEN);
+            llvm::outs() << "current state --> ";
+            llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+        }
         printState(state);
         llvm::outs() << "\n";
     }

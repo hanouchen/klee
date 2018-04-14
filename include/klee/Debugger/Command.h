@@ -14,6 +14,7 @@ enum CommandType {
     info, 
     state, 
     terminate,
+    generate_input,
     help, 
     none
 };
@@ -40,6 +41,12 @@ enum class TerminateOpt {
     invalid
 };
 
+enum class GenerateInputOpt {
+    char_array,
+    integer,
+    invalid
+};
+
 namespace debugcommands {
 
 extern CommandType selected;
@@ -47,10 +54,10 @@ extern std::vector<std::string> extraArgs;
 extern int stateIdx;
 extern std::string bpString;
 extern std::string var;
-extern bool terminateOtherStates;
 extern InfoOpt infoOpt;
 extern StateOpt dir;
 extern TerminateOpt termOpt;
+extern GenerateInputOpt generateInputOpt;
 
 extern clipp::group continueCmd;
 extern clipp::group runCmd;

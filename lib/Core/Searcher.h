@@ -111,7 +111,7 @@ namespace klee {
       this->executor = executor;
     }
     unsigned newStates() { return newStateCount; }
-    void selectNewState(int idx, bool terminateOhter);
+    void selectNewState(int idx);
     void nextIter();
     std::vector<ExecutionState *>::iterator newStatesBegin();
     ExecutionState *currentState();
