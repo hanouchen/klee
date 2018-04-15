@@ -88,7 +88,7 @@ KDebugger::KDebugger() :
     breakpoints(), 
     step(true) {}
 
-void KDebugger::selectState() {
+void KDebugger::preprocess() {
     if (klee_interrupted()) {
         step = false;
         set_interrupted(false);
@@ -119,11 +119,6 @@ void KDebugger::selectState() {
     }
 }
 
-void KDebugger::showPrompt(const char *msg) {
-    assert(msg);
-    prompt.show(msg);
-}
-
 void KDebugger::showPromptAtInstruction(const KInstruction *ki) {
     std::string file = getFileFromPath(ki->info->file);
     std::string msg = file + ", line " + std::to_string(ki->info->line) + "> ";
@@ -140,10 +135,6 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
         state.lastBreakpoint = bp;
         showPromptAtInstruction(ki);
     }
-}
-
-void KDebugger::setSearcher(DebugSearcher *searcher) {
-    this->searcher = searcher;
 }
 
 void KDebugger::handleCommand(std::vector<std::string> &input, std::string &msg) {

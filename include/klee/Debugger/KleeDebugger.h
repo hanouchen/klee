@@ -20,30 +20,20 @@ class KInstruction;
 class KInstIterator;
 class Executor;
 
-namespace {
-const char * DEFAULT_PROMPT = "klee debugger, type h for help> ";
-}
-
 class KDebugger {
 public:
-
     KDebugger();
 
-    void selectState();
+    void handleCommand(std::vector<std::string> &, std::string &);
+    void preprocess();
     void selectBranch(int, std::string &);
 
-    void showPrompt(const char *prompt = DEFAULT_PROMPT);
-    void checkBreakpoint(ExecutionState &state);
     void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
     void setExecutor(Executor *executor) { this->executor = executor; }
-    void setSearcher(DebugSearcher *);
-    void setModule(llvm::Module *module) {this->module = module; }
-    void showPromptAtInstruction(const KInstruction *);
-    void handleCommand(std::vector<std::string> &, std::string &);
-
+    void setModule(llvm::Module *module) { this->module = module; }
+    void setSearcher(DebugSearcher *) { this->searcher = searcher; }
 
 private:
-
     Prompt prompt;
     Executor *executor;
     DebugSearcher *searcher;
@@ -52,6 +42,9 @@ private:
     llvm::Module *module;
     bool step;
     static void (KDebugger::*processors[])(std::string &);
+
+    void checkBreakpoint(ExecutionState &state);
+    void showPromptAtInstruction(const KInstruction *);
 
     void processContinue(std::string &);
     void processRun(std::string &);

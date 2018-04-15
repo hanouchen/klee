@@ -140,12 +140,6 @@ ExecutionState *DebugSearcher::currentState() {
   return *iter;
 }
 
-std::vector<ExecutionState *>::iterator DebugSearcher::newStatesBegin() {
-  auto it = states.end();
-  it = it - newStateCount;
-  return it;
-}
-
 bool DebugSearcher::empty() { return states.empty(); }
 
 ///

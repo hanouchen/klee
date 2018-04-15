@@ -2680,7 +2680,7 @@ void Executor::run(ExecutionState &initialState) {
   while (!states.empty()) {
     
     if (debugger) {
-      debugger->selectState();
+      debugger->preprocess();
       if (states.empty()) {
         break;
       }
