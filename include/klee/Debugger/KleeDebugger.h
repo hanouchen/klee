@@ -31,7 +31,7 @@ public:
     void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
     void setExecutor(Executor *executor) { this->executor = executor; }
     void setModule(llvm::Module *module) { this->module = module; }
-    void setSearcher(DebugSearcher *) { this->searcher = searcher; }
+    void setSearcher(DebugSearcher * searcher) { this->searcher = searcher; }
 
 private:
     Prompt prompt;
