@@ -1,7 +1,7 @@
 #ifndef KLEE_DEBUGGER_H
 #define KLEE_DEBUGGER_H
 
-#include <set>
+#include <vector>
 #include <string>
 
 #include "../../../lib/Core/Searcher.h"
@@ -38,7 +38,7 @@ private:
     Executor *executor;
     DebugSearcher *searcher;
     StatsTracker *statsTracker;
-    std::set<Breakpoint> breakpoints;
+    std::vector<Breakpoint> breakpoints;
     llvm::Module *module;
     bool step;
     static void (KDebugger::*processors[])(std::string &);
@@ -52,6 +52,7 @@ private:
     void processQuit(std::string &);
     void processHelp(std::string &);
     void processBreakpoint(std::string &);
+    void processDelete(std::string &);
     void processPrint(std::string &);
     void processInfo(std::string &);
     void processState(std::string &);

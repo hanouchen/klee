@@ -10,6 +10,7 @@ enum CommandType {
     step,
     quit, 
     breakpoint, 
+    del,
     print,
     info, 
     state, 
@@ -52,6 +53,7 @@ namespace debugcommands {
 extern CommandType selected;
 extern std::vector<std::string> extraArgs;
 extern int stateIdx;
+extern unsigned breakpointIdx;
 extern std::string bpString;
 extern std::string var;
 extern InfoOpt infoOpt;

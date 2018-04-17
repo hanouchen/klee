@@ -27,6 +27,7 @@ std::vector<std::string> extraArgs;
 // The index of the state that user chooses to continue
 // execution on when execution branches.
 int stateIdx = 0;
+unsigned breakpointIdx = 0;
 
 group continueCmd = (
     command("c", "continue").set(selected, CommandType::cont).
@@ -65,6 +66,12 @@ group breakCmd = (
     })).doc("break argument:"), 
     any_other(extraArgs));
 
+group deleteCmd = (
+    command("d", "del").set(selected, CommandType::del).
+    doc("Delete a breakpoint"),
+    value("breakpoint number", breakpointIdx),
+    any_other(extraArgs));
+
 group printCmd = (
     command("p", "print").set(selected, CommandType::print).
     doc("Print information about a variable"),
@@ -80,7 +87,7 @@ group printCmd = (
 group infoCmd = (
     command("info").set(selected, CommandType::info).doc("Print info"),
     one_of(
-        option("breakpoints").set(infoOpt, InfoOpt::breakpoints).
+        option("break").set(infoOpt, InfoOpt::breakpoints).
         doc("List all breakpoints"),
         option("states").set(infoOpt, InfoOpt::states).
         doc("List all states"),
@@ -141,6 +148,7 @@ group cmdParser = one_of(
     quitCmd,
     helpCmd,
     breakCmd,
+    deleteCmd,
     printCmd,
     infoCmd,
     stateCmd,

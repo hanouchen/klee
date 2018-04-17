@@ -11,4 +11,5 @@ klee_add_component(kleeDebugger
   Command.cpp
   Prompt.cpp
   KleeDebugger.cpp
+  Breakpoint.cpp
 )

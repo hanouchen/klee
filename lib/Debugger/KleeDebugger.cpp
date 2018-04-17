@@ -13,6 +13,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Value.h"
@@ -73,6 +74,7 @@ void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
     &KDebugger::processStep,
     &KDebugger::processQuit,
     &KDebugger::processBreakpoint,
+    &KDebugger::processDelete,
     &KDebugger::processPrint,
     &KDebugger::processInfo,
     &KDebugger::processState,
@@ -130,9 +132,11 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
         return;
     }
     auto ki = state.pc;
-    Breakpoint bp(getFileFromPath(ki->info->file), ki->info->line);
-    if (state.lastBreakpoint != bp && breakpoints.find(bp) != breakpoints.end()) {
-        state.lastBreakpoint = bp;
+    auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [&ki](const Breakpoint &bp) {
+        return bp.file == getFileFromPath(ki->info->file) && bp.line == ki->info->line;
+    });
+    if (it != breakpoints.end() && *it != state.lastBreakpoint) {
+        state.lastBreakpoint = *it;
         showPromptAtInstruction(ki);
     }
 }
@@ -187,10 +191,34 @@ void KDebugger::processBreakpoint(std::string &) {
     std::regex breakpointRegex("(\\w*\\.\\w*)\\:([0-9]+)");
     std::cmatch matches;
     if (std::regex_search(bpString.c_str(), matches, breakpointRegex)) {
-        auto res = breakpoints.emplace(matches.str(1), (unsigned)stoi(matches.str(2)));
-        klee_message(res.second ? "Breakpoint set" : "Breakpoint already exist");
+        Breakpoint nbp(matches.str(1), (unsigned)stoi(matches.str(2)));
+        auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [&nbp](const Breakpoint &bp) {
+            return bp.file == nbp.file && bp.line == nbp.line;
+        });
+
+        if (it == breakpoints.end()) {
+            breakpoints.push_back(nbp);
+            Breakpoint::cnt++;
+            llvm::outs() << "New breakpoint set\n";
+        } else {
+            llvm::outs() << "Breakpoint already exists\n";
+        }
     } else {
-        klee_message("Invalid breakpoint format");
+        llvm::outs() << "Invalid breakpoint format\n";
+    }
+}
+
+void KDebugger::processDelete(std::string &) {
+    auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [](const Breakpoint &bp) {
+        return bp.idx == breakpointIdx;
+    });
+
+    if (it != breakpoints.end()) {
+        breakpoints.erase(it);
+        llvm::outs() << "Breakpoint successfully removed\n";
+    } else {
+        llvm::outs() << "No breakpoint with number " << breakpointIdx << "\n";
+        llvm::outs() << "Type info break to see all breakpoints\n";
     }
 }
 
@@ -308,9 +336,21 @@ void KDebugger::processHelp(std::string &) {
 }
 
 void KDebugger::printBreakpoints() {
-    klee_message("%zu breakpoints set", breakpoints.size());
+    llvm::outs() << breakpoints.size() << " breakpoints set\n";
+    const unsigned fileCol = 9;
+    const unsigned lineCol = 36;
+    llvm::formatted_raw_ostream fo(llvm::outs());
+    fo << "Num";
+    fo.PadToColumn(fileCol);
+    fo << "File";
+    fo.PadToColumn(lineCol);
+    fo << "Line\n";
     for (auto & bp : breakpoints) {
-        klee_message("%s at line %u", bp.file.c_str(), bp.line);
+        fo << bp.idx;
+        fo.PadToColumn(fileCol);
+        fo << bp.file;
+        fo.PadToColumn(lineCol);
+        fo << bp.line << "\n";
     }
 }
 
