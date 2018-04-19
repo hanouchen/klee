@@ -96,7 +96,7 @@ void KDebugger::preprocess() {
         set_interrupted(false);
         set_halt_execution(false);
         prompt.show(MSG_INTERRUPTED);
-    } else if (step) {
+    } else if (step || (stopUponBranching && searcher->newStates())) {
         // Check if execution branched.
         if (searcher->newStates()) {
             unsigned int newStates = searcher->newStates();
@@ -137,12 +137,14 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
     });
     if (it != breakpoints.end() && *it != state.lastBreakpoint) {
         state.lastBreakpoint = *it;
-        showPromptAtInstruction(ki);
+        std::string file = getFileFromPath(ki->info->file);
+        std::string msg = "Breakpoint hit: " + file + ", line " + std::to_string(ki->info->line) + "> ";
+        prompt.show(msg.c_str());
     }
 }
 
 void KDebugger::handleCommand(std::vector<std::string> &input, std::string &msg) {
-    if (step && searcher->newStates()) {
+    if ((step || stopUponBranching) && searcher->newStates()) {
         auto res = clipp::parse(input, branchSelection);
         if (res) {
             selectBranch(stateIdx, msg);
@@ -270,6 +272,7 @@ void KDebugger::selectBranch(int idx, std::string &msg) {
     searcher->selectNewState(idx);
     auto state = *(searcher->getStates().end() - newStates + idx - 2);
     llvm::outs() << "You selected state @" << state << ".\n";
+    stopUponBranching = false;
     prompt.breakFromLoop();
 }
 

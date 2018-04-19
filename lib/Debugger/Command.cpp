@@ -26,12 +26,16 @@ std::vector<std::string> extraArgs;
 
 // The index of the state that user chooses to continue
 // execution on when execution branches.
+bool stopUponBranching = false;
 int stateIdx = 0;
 unsigned breakpointIdx = 0;
 
 group continueCmd = (
     command("c", "continue").set(selected, CommandType::cont).
     doc("Continue execution until the next breakpoint (or end of program)"),
+    one_of(
+        option("-s").set(stopUponBranching, true).doc("stop when execution branches")).
+        doc("continue options:"),
     any_other(extraArgs));
 
 group runCmd = (

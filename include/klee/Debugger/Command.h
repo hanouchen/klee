@@ -52,6 +52,7 @@ namespace debugcommands {
 
 extern CommandType selected;
 extern std::vector<std::string> extraArgs;
+extern bool stopUponBranching;
 extern int stateIdx;
 extern unsigned breakpointIdx;
 extern std::string bpString;

@@ -128,6 +128,7 @@ void DebugSearcher::update(ExecutionState *current,
 
 void DebugSearcher::selectNewState(int idx) {
   iter = states.end() - newStateCount + idx - 2;
+  newStateCount = 0;
 }
 
 void DebugSearcher::nextIter() {
