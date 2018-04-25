@@ -85,7 +85,7 @@ group printCmd = (
         if (selected == CommandType::print) {
             llvm::outs() << "Please enter a variable name\n";
         }
-    })).doc("print argument:"), 
+    })).doc("print argument:"),
     any_other(extraArgs));
 
 group infoCmd = (
@@ -140,10 +140,25 @@ group generateConcreteInputCmd = ((
     doc("Generate concrete input values for the current state"),
     one_of(
         option("int").set(generateInputOpt, GenerateInputOpt::integer).
-        doc("Show the concrete values in integers"),
+        doc("Show the concrete values in integers\n"),
         option("hex-char").set(generateInputOpt, GenerateInputOpt::char_array)
     ).doc("generate-input options:"),
     any_other(extraArgs)));
+    
+group cmds[12] = {
+    continueCmd,
+    runCmd,
+    stepCmd,
+    quitCmd,
+    helpCmd,
+    breakCmd,
+    deleteCmd,
+    printCmd,
+    infoCmd,
+    stateCmd,
+    terminateCmd,
+    generateConcreteInputCmd
+};
 
 group cmdParser = one_of(
     continueCmd, 

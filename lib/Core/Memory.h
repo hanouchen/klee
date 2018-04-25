@@ -14,6 +14,7 @@
 #include "klee/Expr.h"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/IR/Value.h"
 
 #include <vector>
 #include <string>
@@ -97,6 +98,7 @@ public:
       isUserSpecified(false),
       parent(_parent), 
       allocSite(_allocSite) {
+      if (_allocSite) name = _allocSite->getName();
   }
 
   ~MemoryObject();
@@ -146,6 +148,7 @@ public:
 class ObjectState {
 private:
   friend class AddressSpace;
+  friend class KDebugger;
   unsigned copyOnWriteOwner; // exclusively for AddressSpace
 
   friend class ObjectHolder;
@@ -231,7 +234,7 @@ private:
   void markByteUnflushed(unsigned offset);
   void setKnownSymbolic(unsigned offset, Expr *value);
 
-  void print();
+  void print() const;
   ArrayCache *getArrayCache() const;
 };
   

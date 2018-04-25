@@ -96,21 +96,32 @@ void KDebugger::preprocess() {
         set_interrupted(false);
         set_halt_execution(false);
         prompt.show(MSG_INTERRUPTED);
-    } else if (step || (stopUponBranching && searcher->newStates())) {
+    } else if (step || searcher->newStates()) {
         // Check if execution branched.
         if (searcher->newStates()) {
             unsigned int newStates = searcher->newStates();
             auto states = searcher->getStates();
             llvm::outs().changeColor(llvm::raw_ostream::GREEN);
             llvm::outs() << "Execution branched\n";
-            unsigned int cnt = 0;
-            for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
+            if (step || stopUponBranching) {
+                unsigned int cnt = 0;
+                for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
+                    llvm::outs().changeColor(llvm::raw_ostream::CYAN);
+                    llvm::outs() << "Enter " << ++cnt << " to select ";
+                    printState(*it);
+                    llvm::outs() << "\n";
+                }
+                if (prompt.show(MSG_SELECT_STATE)) {
+                    return;
+                }
+            } else {
+                for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
+                    printState(*it);
+                    llvm::outs() << "\n";
+                }
                 llvm::outs().changeColor(llvm::raw_ostream::CYAN);
-                llvm::outs() << "Enter " << ++cnt << " to select ";
-                printState(*it);
-                llvm::outs() << "\n";
-            }
-            if (prompt.show(MSG_SELECT_STATE)) {
+                llvm::outs() << "Continuing execution from state @" << *(states.end() - 1) << "\n";
+                llvm::outs().changeColor(llvm::raw_ostream::WHITE);
                 return;
             }
         }
@@ -123,6 +134,11 @@ void KDebugger::preprocess() {
 
 void KDebugger::showPromptAtInstruction(const KInstruction *ki) {
     std::string file = getFileFromPath(ki->info->file);
+    if (file == "") {
+        prompt.show("KLEE debugger, type h for usage> ");
+        return;
+    }
+    // unsigned line = ki->inst->getDebugLoc().getLine();
     std::string msg = file + ", line " + std::to_string(ki->info->line) + "> ";
     prompt.show(msg.c_str());
 }
@@ -144,6 +160,7 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
 }
 
 void KDebugger::handleCommand(std::vector<std::string> &input, std::string &msg) {
+    selected = CommandType::none;
     if ((step || stopUponBranching) && searcher->newStates()) {
         auto res = clipp::parse(input, branchSelection);
         if (res) {
@@ -151,18 +168,25 @@ void KDebugger::handleCommand(std::vector<std::string> &input, std::string &msg)
         }
         return;
     }
-    auto res = clipp::parse(input, cmdParser);
-    if (res && extraArgs.empty()) {
-        (this->*(KDebugger::processors[(int)selected]))(msg);
-    } else {
-        if (extraArgs.empty() && res.any_blocked()) {
-            llvm::outs() << "Unkown command: \"" << input[0] << "\"\n";
+    for (auto &cli : cmds) {
+        std::vector<std::string> v;
+        v.push_back(input[0]);
+        auto res = clipp::parse(v, cli);
+        if (selected != CommandType::none) {
+            res = clipp::parse(input, cli);
+            if (res && extraArgs.empty()) {
+                (this->*(KDebugger::processors[(int)selected]))(msg);
+                return;
+            } else {
+                for (auto const & arg: extraArgs) {
+                    llvm::outs() << "Unsupported arguments: " << arg << "\n";
+                }
+                extraArgs.clear();
+                break;
+            }
         }
-        for (auto const & arg: extraArgs) {
-            llvm::outs() << "Unsupported arguments: " << arg << "\n";
-        }
-        extraArgs.clear();
     }
+    llvm::outs() << "Invalid input, type h to see usage.\n";
 }
 
 void KDebugger::processContinue(std::string &) {
@@ -226,14 +250,41 @@ void KDebugger::processDelete(std::string &) {
 
 void KDebugger::processPrint(std::string &) {
     llvm::outs() << "Printing variable: " << var << "\n";
-    auto objs = searcher->currentState()->addressSpace.objects;
-    auto st = searcher->currentState()->stack;
     auto stackFrame = searcher->currentState()->stack.back();
     auto func = stackFrame.kf->function;
-    llvm::ValueSymbolTable &symbolTable = func->getValueSymbolTable();
-    llvm::StringRef sRef(var.c_str());
-    auto *val = symbolTable.lookup(sRef);
-    val->dump();
+    auto &st = stackFrame.kf->function->getValueSymbolTable();
+    const auto &args = func->getArgumentList();
+    unsigned int idx = 1; // 0 is retval
+
+    for (auto &arg : args) {
+        if (arg.getName() == var) {
+            ObjectPair op;
+            if (idx >= stackFrame.allocas.size()) { // not allocated yet
+                auto value = st.lookup(llvm::StringRef(var.c_str()));
+                if (!value) break;
+                value->dump();
+            } else {
+                searcher->currentState()->addressSpace.resolveOne(
+                    stackFrame.allocas[idx]->getBaseExpr(), op);
+                if (!op.second) break;
+                op.second->print();
+            }
+            return;
+        }
+        idx++;
+    }
+
+    for (auto mo : stackFrame.allocas) {
+        if (mo->name == var) {
+            ObjectPair op;
+            searcher->currentState()->addressSpace.resolveOne(mo->getBaseExpr(), op);
+            if (!op.second) break;
+            op.second->print();
+            return;
+        }
+    }
+    llvm::outs() << "Unable to print variable information\n";
+   
 }
 
 void KDebugger::processInfo(std::string &) {
@@ -382,6 +433,9 @@ void KDebugger::printState(ExecutionState *state) {
 
 void KDebugger::printCode(ExecutionState *state) {
     auto info = state->pc->info;
+    if (info->file == "") {
+        return;
+    }
     std::string line = getSourceLine(info->file, info->line);
     size_t first = line.find_first_not_of(' ');
     std::string trimmed = line.substr(first, line.size() - first + 1);

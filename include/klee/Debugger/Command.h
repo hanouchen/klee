@@ -71,6 +71,7 @@ extern clipp::group breakCmd;
 extern clipp::group infoCmd;
 extern clipp::group terminateCmd;
 extern clipp::group stateCmd;
+extern clipp::group cmds[12];
 extern clipp::group cmdParser;
 extern clipp::group branchSelection;
 

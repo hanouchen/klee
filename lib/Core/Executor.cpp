@@ -1670,7 +1670,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     for (unsigned j=0; j<numArgs; ++j)
       arguments.push_back(eval(ki, j+1, state).value);
-
+    
     if (f) {
       const FunctionType *fType = 
         dyn_cast<FunctionType>(cast<PointerType>(f->getType())->getElementType());
@@ -2795,7 +2795,7 @@ void Executor::terminateState(ExecutionState &state) {
     state.pc = state.prevPC;
 
     removedStates.push_back(&state);
-    llvm::outs() << "state @" << &state << " has terminated\n";
+    if (debugger) llvm::outs() << "state @" << &state << " has terminated\n";
   } else {
     // never reached searcher, just delete immediately
     std::map< ExecutionState*, std::vector<SeedInfo> >::iterator it3 = 
