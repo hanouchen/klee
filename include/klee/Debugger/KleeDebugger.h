@@ -54,6 +54,7 @@ private:
     void processBreakpoint(std::string &);
     void processDelete(std::string &);
     void processPrint(std::string &);
+    void processSet(std::string &);
     void processInfo(std::string &);
     void processState(std::string &);
     void processTerminate(std::string &);
@@ -65,6 +66,8 @@ private:
     void printStack(ExecutionState *);
     void printCode(ExecutionState *);
     void printConstraints(ExecutionState *);
+
+    const MemoryObject *getMemoryObjectBySymbol(std::string &);
 };
 }
 #endif

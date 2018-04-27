@@ -12,6 +12,7 @@ enum CommandType {
     breakpoint, 
     del,
     print,
+    set,
     info, 
     state, 
     terminate,
@@ -57,6 +58,7 @@ extern int stateIdx;
 extern unsigned breakpointIdx;
 extern std::string bpString;
 extern std::string var;
+extern std::string stateAddrHex;
 extern InfoOpt infoOpt;
 extern StateOpt dir;
 extern TerminateOpt termOpt;
@@ -71,7 +73,7 @@ extern clipp::group breakCmd;
 extern clipp::group infoCmd;
 extern clipp::group terminateCmd;
 extern clipp::group stateCmd;
-extern clipp::group cmds[12];
+extern clipp::group cmds[13];
 extern clipp::group cmdParser;
 extern clipp::group branchSelection;
 

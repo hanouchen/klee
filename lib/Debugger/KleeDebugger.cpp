@@ -76,6 +76,7 @@ void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
     &KDebugger::processBreakpoint,
     &KDebugger::processDelete,
     &KDebugger::processPrint,
+    &KDebugger::processSet,
     &KDebugger::processInfo,
     &KDebugger::processState,
     &KDebugger::processTerminate,
@@ -171,7 +172,7 @@ void KDebugger::handleCommand(std::vector<std::string> &input, std::string &msg)
     for (auto &cli : cmds) {
         std::vector<std::string> v;
         v.push_back(input[0]);
-        auto res = clipp::parse(v, cli);
+        auto res = clipp::parse(v, one_of(cli[0].as_param()));
         if (selected != CommandType::none) {
             res = clipp::parse(input, cli);
             if (res && extraArgs.empty()) {
@@ -252,39 +253,38 @@ void KDebugger::processPrint(std::string &) {
     llvm::outs() << "Printing variable: " << var << "\n";
     auto stackFrame = searcher->currentState()->stack.back();
     auto func = stackFrame.kf->function;
-    auto &st = stackFrame.kf->function->getValueSymbolTable();
-    const auto &args = func->getArgumentList();
-    unsigned int idx = 1; // 0 is retval
 
-    for (auto &arg : args) {
-        if (arg.getName() == var) {
-            ObjectPair op;
-            if (idx >= stackFrame.allocas.size()) { // not allocated yet
-                auto value = st.lookup(llvm::StringRef(var.c_str()));
-                if (!value) break;
-                value->dump();
-            } else {
-                searcher->currentState()->addressSpace.resolveOne(
-                    stackFrame.allocas[idx]->getBaseExpr(), op);
-                if (!op.second) break;
-                op.second->print();
-            }
-            return;
-        }
-        idx++;
-    }
-
-    for (auto mo : stackFrame.allocas) {
-        if (mo->name == var) {
-            ObjectPair op;
-            searcher->currentState()->addressSpace.resolveOne(mo->getBaseExpr(), op);
-            if (!op.second) break;
-            op.second->print();
+    auto mo = getMemoryObjectBySymbol(var);
+    if (mo) {
+        auto os = searcher->currentState()->addressSpace.findObject(mo);
+        if (os) {
+            os->print();
             return;
         }
     }
+
+    auto &st = func->getValueSymbolTable();
+    auto value = st.lookup(llvm::StringRef(var.c_str()));
+
+    if (value) {
+        value->dump();
+        return;
+    }
+
     llvm::outs() << "Unable to print variable information\n";
-   
+}
+
+void KDebugger::processSet(std::string &) {
+    llvm::outs() << "Setting variable: " << var << "\n";
+    auto state = searcher->currentState();
+
+    auto mo = getMemoryObjectBySymbol(var);
+    if (mo) {
+        executor->executeMakeSymbolic(*state, mo, var);
+        return;
+    }
+
+    llvm::outs() << "Unable to find variable " << var << "\n";
 }
 
 void KDebugger::processInfo(std::string &) {
@@ -294,7 +294,7 @@ void KDebugger::processInfo(std::string &) {
         case InfoOpt::constraints: printConstraints(state); break;
         case InfoOpt::breakpoints: printBreakpoints(); break;
         case InfoOpt::states: printAllStates(); break;
-        case InfoOpt::statistics: this->statsTracker->printStats(llvm::outs()); break;
+        case InfoOpt::statistics: statsTracker->printStats(llvm::outs()); break;
         case InfoOpt::state: printState(state); break;
         default:
             llvm::outs() << "Invalid info option, type \"h\" for help.\n";
@@ -303,7 +303,19 @@ void KDebugger::processInfo(std::string &) {
 }
 
 void KDebugger::processState(std::string &msg) {
-    searcher->nextIter();
+    if (stateAddrHex.size()) {
+        char *res = 0;
+        unsigned long long addr = strtoul(stateAddrHex.c_str(), &res, 16);
+        if (*res != 0) {
+            llvm::outs() << "Please enter a valid address (hex number) \n";
+            return;
+        } else {
+            searcher->setStateAtAddr(addr);
+        }
+        stateAddrHex = "";
+    } else {
+        searcher->nextIter();
+    }
     auto *state = searcher->currentState();
     llvm::outs() <<  "Moved to state @"; 
     llvm::outs().write_hex((unsigned long long)state);
@@ -321,7 +333,7 @@ void KDebugger::selectBranch(int idx, std::string &msg) {
     }
 
     searcher->selectNewState(idx);
-    auto state = *(searcher->getStates().end() - newStates + idx - 2);
+    auto state = searcher->currentState();
     llvm::outs() << "You selected state @" << state << ".\n";
     stopUponBranching = false;
     prompt.breakFromLoop();
@@ -460,6 +472,27 @@ void KDebugger::printConstraints(ExecutionState *state) {
     llvm::outs() << "constraints for state:\n";
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
     ExprPPrinter::printConstraints(llvm::outs(), state->constraints);
+}
+
+const MemoryObject *KDebugger::getMemoryObjectBySymbol(std::string &var) {
+    auto stackFrame = searcher->currentState()->stack.back();
+    auto func = stackFrame.kf->function;
+    const auto &args = func->getArgumentList();
+    unsigned int idx = 1; // 0 is retval
+
+    for (auto &arg : args) {
+        if (arg.getName() == var && idx < stackFrame.allocas.size()) {
+            return stackFrame.allocas[idx];
+        }
+        idx++;
+    }
+
+    for (auto mo : stackFrame.allocas) {
+        if (mo->name == var)
+            return mo;
+    }
+
+    return NULL;
 }
 
 }

@@ -131,6 +131,17 @@ void DebugSearcher::selectNewState(int idx) {
   newStateCount = 0;
 }
 
+void DebugSearcher::setStateAtAddr(unsigned int addr) {
+  auto res = std::find_if(states.begin(), states.end(), [&addr](ExecutionState *state){
+    return addr == ((unsigned long long)state);
+  });
+  if (res == states.end()) {
+    llvm::outs() << "No state with address:" << addr << "\n";
+  } else {
+    iter = res;
+  }
+}
+
 void DebugSearcher::nextIter() {
   ++iter;
   iter = iter == states.end() ? states.begin() : iter;

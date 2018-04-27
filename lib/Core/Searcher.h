@@ -108,6 +108,7 @@ namespace klee {
     }
     unsigned newStates() { return newStateCount; }
     void selectNewState(int idx);
+    void setStateAtAddr(unsigned int addr);
     void nextIter();
     ExecutionState *currentState();
 

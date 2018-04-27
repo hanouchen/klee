@@ -24,6 +24,8 @@ std::string var = "";
 // Any extra (invalid) arguments for a command
 std::vector<std::string> extraArgs;
 
+std::string stateAddrHex = "";
+
 // The index of the state that user chooses to continue
 // execution on when execution branches.
 bool stopUponBranching = false;
@@ -73,7 +75,13 @@ group breakCmd = (
 group deleteCmd = (
     command("d", "del").set(selected, CommandType::del).
     doc("Delete a breakpoint"),
-    value("breakpoint number", breakpointIdx),
+    group(value("breakpoint number", breakpointIdx).
+    doc("Number of the breakpoint to delete\n").
+    if_missing([] { 
+        if (selected == CommandType::breakpoint) {
+            llvm::outs() << "Please enter a file name and a line to break.\n";
+        }
+    })).doc("Delete argument:"),
     any_other(extraArgs));
 
 group printCmd = (
@@ -86,6 +94,18 @@ group printCmd = (
             llvm::outs() << "Please enter a variable name\n";
         }
     })).doc("print argument:"),
+    any_other(extraArgs));
+
+group setCmd = (
+    command("set").set(selected, CommandType::set).
+    doc("Set the value of a variable"),
+    group(value("var", var).
+    doc("The variable to set\n").
+    if_missing([] { 
+        if (selected == CommandType::set) {
+            llvm::outs() << "Please enter a variable name\n";
+        }
+    })).doc("set argument:"),
     any_other(extraArgs));
 
 group infoCmd = (
@@ -116,7 +136,9 @@ group stateCmd = ((
         command("next").set(stateOpt, StateOpt::next).
         doc("Move to the next state"),
         command("prev").set(stateOpt, StateOpt::prev).
-        doc("Move to the previous state\n").
+        doc("Move to the previous state"),
+        value("address").set(stateAddrHex).
+        doc("Address of the state to move to\n").
         if_missing([]{ 
             if (selected == CommandType::state) {
                 llvm::outs() << "Please specify a direction.\n";
@@ -126,7 +148,7 @@ group stateCmd = ((
 
 group terminateCmd = ((
     command("terminate").set(selected, CommandType::terminate).
-    doc("Terminate current state"),
+    doc("Terminate execution state(s)"),
     one_of(
         option("current").set(termOpt, TerminateOpt::current).
         doc("Terminal current execution state"),
@@ -140,12 +162,12 @@ group generateConcreteInputCmd = ((
     doc("Generate concrete input values for the current state"),
     one_of(
         option("int").set(generateInputOpt, GenerateInputOpt::integer).
-        doc("Show the concrete values in integers\n"),
+        doc("Show the concrete values in integers (not implemented) \n"),
         option("hex-char").set(generateInputOpt, GenerateInputOpt::char_array)
     ).doc("generate-input options:"),
     any_other(extraArgs)));
     
-group cmds[12] = {
+group cmds[13] = {
     continueCmd,
     runCmd,
     stepCmd,
@@ -154,6 +176,7 @@ group cmds[12] = {
     breakCmd,
     deleteCmd,
     printCmd,
+    setCmd,
     infoCmd,
     stateCmd,
     terminateCmd,
