@@ -37,7 +37,7 @@ std::string getSourceLine(const std::string &file, unsigned line) {
     if (!in.fail()) {
         for (unsigned i = 1; i <= line; ++i) {
             std::getline(in, res);
-            if (in.eof()) { 
+            if (in.eof()) {
                 res = "";
                 break;
             }
@@ -48,19 +48,17 @@ std::string getSourceLine(const std::string &file, unsigned line) {
 }
 
 std::string getFileFromPath(const std::string &fullPath) {
-    std::cmatch matches;
-    std::regex fileRegex(".*\\/(\\w*\\.\\w*)");
-    if (std::regex_search(fullPath.c_str(), matches, fileRegex)) {
-        return matches[1].str();
+    size_t i = fullPath.find_last_of('/');
+    if (i == std::string::npos) {
+        return fullPath;
     }
-    return "Unkown file";
+    return fullPath.substr(i + 1);
 }
 
-const char *MSG_INTERRUPTED 
+const char *MSG_INTERRUPTED
     = "KLEE: ctrl-c detected, execution interrupted> ";
 const char *MSG_SELECT_STATE
     = "Select a state to continue by entering state number:";
-
 }
 
 extern "C" void set_halt_execution(bool);
@@ -84,11 +82,12 @@ void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
     &KDebugger::processHelp,
 };
 
-KDebugger::KDebugger() : 
+KDebugger::KDebugger() :
     prompt(this),
     searcher(0),
     statsTracker(0),
-    breakpoints(), 
+    breakpoints(),
+    breakTable(),
     step(true) {}
 
 void KDebugger::preprocess() {
@@ -112,9 +111,7 @@ void KDebugger::preprocess() {
                     printState(*it);
                     llvm::outs() << "\n";
                 }
-                if (prompt.show(MSG_SELECT_STATE)) {
-                    return;
-                }
+                prompt.show(MSG_SELECT_STATE);
             } else {
                 for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
                     printState(*it);
@@ -123,6 +120,7 @@ void KDebugger::preprocess() {
                 llvm::outs().changeColor(llvm::raw_ostream::CYAN);
                 llvm::outs() << "Continuing execution from state @" << *(states.end() - 1) << "\n";
                 llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+                checkBreakpoint(*searcher->currentState());
                 return;
             }
         }
@@ -139,21 +137,22 @@ void KDebugger::showPromptAtInstruction(const KInstruction *ki) {
         prompt.show("KLEE debugger, type h for usage> ");
         return;
     }
-    // unsigned line = ki->inst->getDebugLoc().getLine();
     std::string msg = file + ", line " + std::to_string(ki->info->line) + "> ";
     prompt.show(msg.c_str());
 }
 
 void KDebugger::checkBreakpoint(ExecutionState &state) {
+    if (state.pc->info->file == state.prevPC->info->file
+        && state.pc->info->line == state.prevPC->info->line) {
+        return;
+    }
     if (breakpoints.empty() || !state.pc) {
         return;
     }
     auto ki = state.pc;
-    auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [&ki](const Breakpoint &bp) {
-        return bp.file == getFileFromPath(ki->info->file) && bp.line == ki->info->line;
-    });
-    if (it != breakpoints.end() && *it != state.lastBreakpoint) {
-        state.lastBreakpoint = *it;
+    std::string fileLine = getFileFromPath(state.pc->info->file) +
+                           std::to_string(state.pc->info->line);
+    if (breakTable[fileLine]) {
         std::string file = getFileFromPath(ki->info->file);
         std::string msg = "Breakpoint hit: " + file + ", line " + std::to_string(ki->info->line) + "> ";
         prompt.show(msg.c_str());
@@ -215,9 +214,10 @@ void KDebugger::processQuit(std::string &) {
 }
 
 void KDebugger::processBreakpoint(std::string &) {
+    std::regex r("(.*\\.\\w*)\\:([0-9]+)");
     std::regex breakpointRegex("(\\w*\\.\\w*)\\:([0-9]+)");
     std::cmatch matches;
-    if (std::regex_search(bpString.c_str(), matches, breakpointRegex)) {
+    if (std::regex_search(bpString.c_str(), matches, r)) {
         Breakpoint nbp(matches.str(1), (unsigned)stoi(matches.str(2)));
         auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [&nbp](const Breakpoint &bp) {
             return bp.file == nbp.file && bp.line == nbp.line;
@@ -225,6 +225,7 @@ void KDebugger::processBreakpoint(std::string &) {
 
         if (it == breakpoints.end()) {
             breakpoints.push_back(nbp);
+            breakTable[nbp.file + std::to_string(nbp.line)] = true;
             Breakpoint::cnt++;
             llvm::outs() << "New breakpoint set\n";
         } else {
@@ -241,6 +242,8 @@ void KDebugger::processDelete(std::string &) {
     });
 
     if (it != breakpoints.end()) {
+        std::string fileLine = it->file + std::to_string(it->line);
+        breakTable.erase(fileLine);
         breakpoints.erase(it);
         llvm::outs() << "Breakpoint successfully removed\n";
     } else {
@@ -317,17 +320,17 @@ void KDebugger::processState(std::string &msg) {
         searcher->nextIter();
     }
     auto *state = searcher->currentState();
-    llvm::outs() <<  "Moved to state @"; 
+    llvm::outs() <<  "Moved to state @";
     llvm::outs().write_hex((unsigned long long)state);
     llvm::outs() << "\n";
-    msg = getFileFromPath(state->pc->info->file) + ", line " + 
+    msg = getFileFromPath(state->pc->info->file) + ", line " +
           std::to_string(state->pc->info->line) + "> ";
 }
 
 void KDebugger::selectBranch(int idx, std::string &msg) {
     unsigned int newStates = searcher->newStates();
     if (idx < 1 || idx > (1 + (int)newStates)) {
-        llvm::outs() << "Please enter a number in the range [1, " 
+        llvm::outs() << "Please enter a number in the range [1, "
             << (1 + newStates) << "]\n";
         return;
     }
@@ -364,7 +367,7 @@ void KDebugger::processTerminate(std::string &) {
 }
 
 void KDebugger::generateConcreteInput(std::string &) {
-    
+
     printConstraints(searcher->currentState());
 
     std::vector<std::pair<std::string, std::vector<unsigned char>>> out;
@@ -436,6 +439,7 @@ void KDebugger::printAllStates() {
 }
 
 void KDebugger::printState(ExecutionState *state) {
+    assert(state);
     llvm::outs().changeColor(llvm::raw_ostream::CYAN);
     llvm::outs() << "state @" << state << ", ";
     printConstraints(state);
@@ -444,6 +448,7 @@ void KDebugger::printState(ExecutionState *state) {
 }
 
 void KDebugger::printCode(ExecutionState *state) {
+    assert(state);
     auto info = state->pc->info;
     if (info->file == "") {
         return;
@@ -461,6 +466,7 @@ void KDebugger::printCode(ExecutionState *state) {
 }
 
 void KDebugger::printStack(ExecutionState *state) {
+    assert(state);
     llvm::outs().changeColor(llvm::raw_ostream::CYAN);
     llvm::outs() << "stack dump:\n";
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
@@ -468,6 +474,7 @@ void KDebugger::printStack(ExecutionState *state) {
 }
 
 void KDebugger::printConstraints(ExecutionState *state) {
+    assert(state);
     llvm::outs().changeColor(llvm::raw_ostream::CYAN);
     llvm::outs() << "constraints for state:\n";
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);

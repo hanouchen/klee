@@ -42,9 +42,9 @@ group continueCmd = (
 
 group runCmd = (
     command("r", "run").set(selected, CommandType::run).
-    doc("Continue execution until the end of program"), 
+    doc("Continue execution until the end of program"),
     any_other(extraArgs));
-    
+
 group stepCmd = (
     command("s", "step").set(selected, CommandType::step).
     doc("Step one assembly instruction"),
@@ -65,11 +65,11 @@ group breakCmd = (
     doc("Set a breakpoint"),
     group(value("file:line", bpString).
     doc("File name and line number to set the breakpoint on\n").
-    if_missing([] { 
+    if_missing([] {
         if (selected == CommandType::breakpoint) {
             llvm::outs() << "Please enter a file name and a line to break.\n";
         }
-    })).doc("break argument:"), 
+    })).doc("break argument:"),
     any_other(extraArgs));
 
 group deleteCmd = (
@@ -77,7 +77,7 @@ group deleteCmd = (
     doc("Delete a breakpoint"),
     group(value("breakpoint number", breakpointIdx).
     doc("Number of the breakpoint to delete\n").
-    if_missing([] { 
+    if_missing([] {
         if (selected == CommandType::breakpoint) {
             llvm::outs() << "Please enter a file name and a line to break.\n";
         }
@@ -89,7 +89,7 @@ group printCmd = (
     doc("Print information about a variable"),
     group(value("var", var).
     doc("The variable to print\n").
-    if_missing([] { 
+    if_missing([] {
         if (selected == CommandType::print) {
             llvm::outs() << "Please enter a variable name\n";
         }
@@ -101,7 +101,7 @@ group setCmd = (
     doc("Set the value of a variable"),
     group(value("var", var).
     doc("The variable to set\n").
-    if_missing([] { 
+    if_missing([] {
         if (selected == CommandType::set) {
             llvm::outs() << "Please enter a variable name\n";
         }
@@ -124,7 +124,7 @@ group infoCmd = (
         option("state").set(infoOpt, InfoOpt::state).
         doc("Default option, "
             "dumps stack and prints constraints of current state\n").
-        if_conflicted([] { 
+        if_conflicted([] {
             llvm::outs() << "You can only specify one info type.";
         })).doc("info options:"),
     any_other(extraArgs));
@@ -139,7 +139,7 @@ group stateCmd = ((
         doc("Move to the previous state"),
         value("address").set(stateAddrHex).
         doc("Address of the state to move to\n").
-        if_missing([]{ 
+        if_missing([]{
             if (selected == CommandType::state) {
                 llvm::outs() << "Please specify a direction.\n";
             }
@@ -152,7 +152,7 @@ group terminateCmd = ((
     one_of(
         option("current").set(termOpt, TerminateOpt::current).
         doc("Terminal current execution state"),
-        option("other").set(termOpt, TerminateOpt::other).
+        option("others").set(termOpt, TerminateOpt::other).
         doc("Terminal all but current execution state\n")
     ).doc("terminate options:"),
     any_other(extraArgs)));
@@ -166,7 +166,7 @@ group generateConcreteInputCmd = ((
         option("hex-char").set(generateInputOpt, GenerateInputOpt::char_array)
     ).doc("generate-input options:"),
     any_other(extraArgs)));
-    
+
 group cmds[13] = {
     continueCmd,
     runCmd,
@@ -184,7 +184,7 @@ group cmds[13] = {
 };
 
 group cmdParser = one_of(
-    continueCmd, 
+    continueCmd,
     runCmd,
     stepCmd,
     quitCmd,
@@ -192,6 +192,7 @@ group cmdParser = one_of(
     breakCmd,
     deleteCmd,
     printCmd,
+    setCmd,
     infoCmd,
     stateCmd,
     terminateCmd,

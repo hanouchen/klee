@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 #include "../../../lib/Core/Searcher.h"
 #include "klee/Internal/Module/KInstruction.h"
@@ -40,6 +41,7 @@ private:
     StatsTracker *statsTracker;
     std::vector<Breakpoint> breakpoints;
     llvm::Module *module;
+    std::unordered_map<std::string, bool> breakTable;
     bool step;
     static void (KDebugger::*processors[])(std::string &);
 

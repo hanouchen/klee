@@ -8,20 +8,14 @@
 namespace klee {
 class KDebugger;
 
-namespace {
-const char *DEFAULT = "klee debugger, type h for help> ";
-};
-
-
 class Prompt {
 
 public:
-    // static void parseInput(std::vector<std::string> &, const char *);
     Prompt(KDebugger *);
-    int show(const char *line = DEFAULT);
+    int show(const char *line);
     void breakFromLoop();
 
-private:    
+private:
     KDebugger *debugger;
     bool breakLoop;
 };
