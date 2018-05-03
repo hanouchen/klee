@@ -5,7 +5,6 @@
 #include <sstream>
 #include <vector>
 
-// FIXME: Probably not a good idea?
 #include "../Core/Searcher.h"
 #include "../Core/StatsTracker.h"
 #include "../Core/Executor.h"
@@ -96,7 +95,9 @@ void KDebugger::preprocess() {
         set_interrupted(false);
         set_halt_execution(false);
         prompt.show(MSG_INTERRUPTED);
-    } else if (step || searcher->newStates()) {
+    }
+
+    if (step || searcher->newStates()) {
         // Check if execution branched.
         if (searcher->newStates()) {
             unsigned int newStates = searcher->newStates();
@@ -112,6 +113,7 @@ void KDebugger::preprocess() {
                     llvm::outs() << "\n";
                 }
                 prompt.show(MSG_SELECT_STATE);
+                return;
             } else {
                 for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
                     printState(*it);
@@ -120,12 +122,14 @@ void KDebugger::preprocess() {
                 llvm::outs().changeColor(llvm::raw_ostream::CYAN);
                 llvm::outs() << "Continuing execution from state @" << *(states.end() - 1) << "\n";
                 llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+                set_halt_execution(false);
                 checkBreakpoint(*searcher->currentState());
-                return;
             }
+        } else {
+            step = false;
+            showPromptAtInstruction(searcher->currentState()->pc);
+            return;
         }
-        step = false;
-        showPromptAtInstruction(searcher->currentState()->pc);
     } else {
         checkBreakpoint(*searcher->currentState());
     }
