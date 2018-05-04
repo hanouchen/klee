@@ -114,6 +114,7 @@ void KDebugger::preprocess() {
                     llvm::outs() << "\n";
                 }
                 prompt.show(MSG_SELECT_STATE);
+                showPromptAtInstruction(searcher->currentState()->pc);
                 return;
             } else {
                 for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
