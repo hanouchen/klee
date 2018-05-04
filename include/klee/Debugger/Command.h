@@ -55,7 +55,7 @@ extern CommandType selected;
 extern std::vector<std::string> extraArgs;
 extern bool stopUponBranching;
 extern int stateIdx;
-extern unsigned breakpointIdx;
+extern std::vector<unsigned> breakpointNumbers;
 extern std::string bpString;
 extern std::string var;
 extern std::string stateAddrHex;

@@ -58,6 +58,7 @@ const char *MSG_INTERRUPTED
     = "KLEE: ctrl-c detected, execution interrupted> ";
 const char *MSG_SELECT_STATE
     = "Select a state to continue by entering state number:";
+const int itemsPerPage = 4;
 }
 
 extern "C" void set_halt_execution(bool);
@@ -241,18 +242,33 @@ void KDebugger::processBreakpoint(std::string &) {
 }
 
 void KDebugger::processDelete(std::string &) {
-    auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [](const Breakpoint &bp) {
-        return bp.idx == breakpointIdx;
-    });
-
-    if (it != breakpoints.end()) {
-        std::string fileLine = it->file + std::to_string(it->line);
-        breakTable.erase(fileLine);
-        breakpoints.erase(it);
-        llvm::outs() << "Breakpoint successfully removed\n";
+    unsigned sz = breakpointNumbers.size();
+    if (sz) {
+        breakpoints.erase(std::remove_if(breakpoints.begin(), breakpoints.end(), [&](const Breakpoint &bp){
+            auto it = std::find(breakpointNumbers.begin(), breakpointNumbers.end(), bp.idx);
+            if (it != breakpointNumbers.end()) {
+                std::string fileLine = bp.file + std::to_string(bp.line);
+                breakTable.erase(fileLine);
+                breakpointNumbers.erase(it);
+                return true;
+            }
+            return false;
+        }), breakpoints.end());
+        llvm::outs() << (sz - breakpointNumbers.size()) << " breakpoints successfully removed.\n";
+        if (breakpointNumbers.size()) {
+            llvm::outs() << "No breakpoints with the following number(s):\n";
+            for (auto num : breakpointNumbers) {
+                llvm::outs() << num << " ";
+            }
+            llvm::outs() << "\n Type info break to list all breakpoints.\n";
+        }
     } else {
-        llvm::outs() << "No breakpoint with number " << breakpointIdx << "\n";
-        llvm::outs() << "Type info break to see all breakpoints\n";
+        for (auto bp : breakpoints) {
+            std::string fileLine = bp.file + std::to_string(bp.line);
+            breakTable.erase(fileLine);
+        }
+        breakpoints.clear();
+        llvm::outs() << "All breakpoints removed.\n";
     }
 }
 
@@ -428,18 +444,47 @@ void KDebugger::printBreakpoints() {
 }
 
 void KDebugger::printAllStates() {
+    auto states = searcher->getStates();
+    int total = states.size();
     llvm::outs().changeColor(llvm::raw_ostream::GREEN);
-    llvm::outs() << "Total number of states: " << searcher->getStates().size();
+    llvm::outs() << "Total number of states: " << total;
     llvm::outs() << "\n";
-    for (auto state : searcher->getStates()) {
-        if (state == searcher->currentState()) {
+
+    for (int i = 0; i < std::min(itemsPerPage, total); ++i) {
+        if (states[i] == searcher->currentState()) {
             llvm::outs().changeColor(llvm::raw_ostream::GREEN);
             llvm::outs() << "current state --> ";
             llvm::outs().changeColor(llvm::raw_ostream::WHITE);
         }
-        printState(state);
+        printState(states[i]);
         llvm::outs() << "\n";
     }
+
+    if (total <= itemsPerPage) return;
+    int page = 0;
+    const char* msg = "n(p) for next(previous) page, q to quit>";
+    char *cmd;
+    while ((cmd = linenoise(msg)) != NULL) {
+        std::string str(cmd);
+        if (str[0] != '\0') {
+            if (str == "q") break;
+            if (str == "n" || str == "p") {
+                page = str == "n" ? std::min(page + 1, total / itemsPerPage)
+                                  : std::max(page - 1, 0);
+                for (int i = itemsPerPage * page; i < total && i < itemsPerPage * (page + 1); ++i) {
+                    if (states[i] == searcher->currentState()) {
+                        llvm::outs().changeColor(llvm::raw_ostream::GREEN);
+                        llvm::outs() << "current state --> ";
+                        llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+                    }
+                    printState(states[i]);
+                    llvm::outs() << "\n";
+                }
+            }
+            linenoiseFree(cmd);
+        }
+    }
+    linenoiseFree(cmd);
 }
 
 void KDebugger::printState(ExecutionState *state) {

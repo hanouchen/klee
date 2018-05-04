@@ -23,6 +23,7 @@ std::string var = "";
 
 // Any extra (invalid) arguments for a command
 std::vector<std::string> extraArgs;
+std::vector<unsigned> breakpointNumbers;
 
 std::string stateAddrHex = "";
 
@@ -30,7 +31,6 @@ std::string stateAddrHex = "";
 // execution on when execution branches.
 bool stopUponBranching = false;
 int stateIdx = 0;
-unsigned breakpointIdx = 0;
 
 group continueCmd = (
     command("c", "continue").set(selected, CommandType::cont).
@@ -75,8 +75,8 @@ group breakCmd = (
 group deleteCmd = (
     command("d", "del").set(selected, CommandType::del).
     doc("Delete a breakpoint"),
-    group(value("breakpoint number", breakpointIdx).
-    doc("Number of the breakpoint to delete\n").
+    group(opt_values("breakpoint number", breakpointNumbers).
+    doc("Number(s) of the breakpoint(s) to delete\n").
     if_missing([] {
         if (selected == CommandType::breakpoint) {
             llvm::outs() << "Please enter a file name and a line to break.\n";
