@@ -55,9 +55,9 @@ std::string getFileFromPath(const std::string &fullPath) {
 }
 
 const char *MSG_INTERRUPTED
-    = "KLEE: ctrl-c detected, execution interrupted> ";
+    = "(kleedb, interrupted) ";
 const char *MSG_SELECT_STATE
-    = "Select a state to continue by entering state number:";
+    = "(Select a state to continue) ";
 const int itemsPerPage = 4;
 }
 
@@ -71,6 +71,7 @@ void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
     &KDebugger::processRun,
     &KDebugger::processStep,
     &KDebugger::processQuit,
+    &KDebugger::processBreakpoint,
     &KDebugger::processBreakpoint,
     &KDebugger::processDelete,
     &KDebugger::processPrint,
@@ -88,6 +89,7 @@ KDebugger::KDebugger() :
     statsTracker(0),
     breakpoints(),
     breakTable(),
+    killTable(),
     step(true) {}
 
 void KDebugger::preprocess() {
@@ -114,7 +116,7 @@ void KDebugger::preprocess() {
                     llvm::outs() << "\n";
                 }
                 prompt.show(MSG_SELECT_STATE);
-                showPromptAtInstruction(searcher->currentState()->pc);
+                prompt.show();
                 return;
             } else {
                 for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
@@ -129,22 +131,12 @@ void KDebugger::preprocess() {
             }
         } else {
             step = false;
-            showPromptAtInstruction(searcher->currentState()->pc);
+            prompt.show();
             return;
         }
     } else {
         checkBreakpoint(*searcher->currentState());
     }
-}
-
-void KDebugger::showPromptAtInstruction(const KInstruction *ki) {
-    std::string file = getFileFromPath(ki->info->file);
-    if (file == "") {
-        prompt.show("KLEE debugger, type h for usage> ");
-        return;
-    }
-    std::string msg = file + ", line " + std::to_string(ki->info->line) + "> ";
-    prompt.show(msg.c_str());
 }
 
 void KDebugger::checkBreakpoint(ExecutionState &state) {
@@ -155,13 +147,22 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
     if (breakpoints.empty() || !state.pc) {
         return;
     }
-    auto ki = state.pc;
     std::string fileLine = getFileFromPath(state.pc->info->file) +
                            std::to_string(state.pc->info->line);
-    if (breakTable[fileLine]) {
+    if (killTable[fileLine]) {
+        std::string str;
+        termOpt = TerminateOpt::current;
+        processTerminate(str);
+        prompt.breakFromLoop();
+        return;
+    }
+    auto ki = state.pc;
+    unsigned bp = breakTable[fileLine];
+    if (bp) {
         std::string file = getFileFromPath(ki->info->file);
-        std::string msg = "Breakpoint hit: " + file + ", line " + std::to_string(ki->info->line) + "> ";
-        prompt.show(msg.c_str());
+        llvm::outs() << "\nBreakpoint " << bp << ", at "  << file << ":" << ki->info->line << "\n";
+        printCode(searcher->currentState(), false);
+        prompt.show();
     }
 }
 
@@ -207,7 +208,6 @@ void KDebugger::processRun(std::string &) {
 }
 
 void KDebugger::processStep(std::string &) {
-    llvm::outs() << "Stepping..\n";
     step = true;
     auto state = searcher->currentState();
     printCode(state);
@@ -220,25 +220,33 @@ void KDebugger::processQuit(std::string &) {
 }
 
 void KDebugger::processBreakpoint(std::string &) {
+    PType type = selected == CommandType::breakpoint ? PType::breakpoint
+                                                     : PType::killpoint;
+
     std::regex r("(.*\\.\\w*)\\:([0-9]+)");
     std::regex breakpointRegex("(\\w*\\.\\w*)\\:([0-9]+)");
     std::cmatch matches;
     if (std::regex_search(bpString.c_str(), matches, r)) {
-        Breakpoint nbp(matches.str(1), (unsigned)stoi(matches.str(2)));
+        Breakpoint nbp(type, matches.str(1), (unsigned)stoi(matches.str(2)));
         auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [&nbp](const Breakpoint &bp) {
             return bp.file == nbp.file && bp.line == nbp.line;
         });
 
         if (it == breakpoints.end()) {
             breakpoints.push_back(nbp);
-            breakTable[nbp.file + std::to_string(nbp.line)] = true;
+            if (type == PType::breakpoint) {
+                breakTable[nbp.file + std::to_string(nbp.line)] = nbp.idx;
+                llvm::outs() << "Breakpoint " << nbp.idx << " at " << nbp.file << ", line " << nbp.line << "\n";
+            } else {
+                killTable[nbp.file + std::to_string(nbp.line)] = nbp.idx;
+                llvm::outs() << "Killpoint " << nbp.idx << " at " << nbp.file << ", line " << nbp.line << "\n";
+            }
             Breakpoint::cnt++;
-            llvm::outs() << "New breakpoint set\n";
         } else {
-            llvm::outs() << "Breakpoint already exists\n";
+            llvm::outs() << "Breakpoint(killpoint) already exists\n";
         }
     } else {
-        llvm::outs() << "Invalid breakpoint format\n";
+        llvm::outs() << "Invalid input format\n";
     }
 }
 
@@ -249,25 +257,27 @@ void KDebugger::processDelete(std::string &) {
             auto it = std::find(breakpointNumbers.begin(), breakpointNumbers.end(), bp.idx);
             if (it != breakpointNumbers.end()) {
                 std::string fileLine = bp.file + std::to_string(bp.line);
-                breakTable.erase(fileLine);
+                if (bp.type == PType::breakpoint) {
+                    breakTable.erase(fileLine);
+                } else {
+                    killTable.erase(fileLine);
+                }
                 breakpointNumbers.erase(it);
                 return true;
             }
             return false;
         }), breakpoints.end());
-        llvm::outs() << (sz - breakpointNumbers.size()) << " breakpoints successfully removed.\n";
+        llvm::outs() << (sz - breakpointNumbers.size()) << " breakpoints(killpoints) successfully removed.\n";
         if (breakpointNumbers.size()) {
-            llvm::outs() << "No breakpoints with the following number(s):\n";
+            llvm::outs() << "No breakpoints(killpoints) with the following number(s):\n";
             for (auto num : breakpointNumbers) {
                 llvm::outs() << num << " ";
             }
             llvm::outs() << "\n Type info break to list all breakpoints.\n";
         }
     } else {
-        for (auto bp : breakpoints) {
-            std::string fileLine = bp.file + std::to_string(bp.line);
-            breakTable.erase(fileLine);
-        }
+        breakTable.clear();
+        killTable.clear();
         breakpoints.clear();
         llvm::outs() << "All breakpoints removed.\n";
     }
@@ -316,6 +326,7 @@ void KDebugger::processInfo(std::string &) {
     switch (infoOpt) {
         case InfoOpt::stack: printStack(state); break;
         case InfoOpt::constraints: printConstraints(state); break;
+        case InfoOpt::killpoints:
         case InfoOpt::breakpoints: printBreakpoints(); break;
         case InfoOpt::states: printAllStates(); break;
         case InfoOpt::statistics: statsTracker->printStats(llvm::outs()); break;
@@ -426,7 +437,6 @@ void KDebugger::processHelp(std::string &) {
 }
 
 void KDebugger::printBreakpoints() {
-    llvm::outs() << breakpoints.size() << " breakpoints set\n";
     const unsigned fileCol = 9;
     const unsigned lineCol = 36;
     llvm::formatted_raw_ostream fo(llvm::outs());
@@ -436,6 +446,12 @@ void KDebugger::printBreakpoints() {
     fo.PadToColumn(lineCol);
     fo << "Line\n";
     for (auto & bp : breakpoints) {
+        if (bp.type == PType::breakpoint && infoOpt == InfoOpt::killpoints) {
+            continue;
+        }
+        if (bp.type == PType::killpoint && infoOpt == InfoOpt::breakpoints) {
+            continue;
+        }
         fo << bp.idx;
         fo.PadToColumn(fileCol);
         fo << bp.file;
@@ -497,21 +513,23 @@ void KDebugger::printState(ExecutionState *state) {
     printCode(state);
 }
 
-void KDebugger::printCode(ExecutionState *state) {
+void KDebugger::printCode(ExecutionState *state, bool printAssembly) {
     assert(state);
     auto info = state->pc->info;
     if (info->file == "") {
+        llvm::outs()  << "No corresponding source information\n";
         return;
     }
     std::string line = getSourceLine(info->file, info->line);
     size_t first = line.find_first_not_of(' ');
     std::string trimmed = line.substr(first, line.size() - first + 1);
-    llvm::outs() << "file: " << info->file << "\n";
-    llvm::outs() << "line: " << info->line << "\n";
+    llvm::outs() << "loc: " << info->file << ":" << info->line << "\n";
     llvm::outs() << "source: " << trimmed << "\n";
     state->pc->printFileLine();
-    llvm::outs() << "assembly:";
-    state->pc->inst->print(llvm::outs());
+    if (printAssembly) {
+        llvm::outs() << "assembly:";
+        state->pc->inst->print(llvm::outs());
+    }
     llvm::outs() << "\n";
 }
 

@@ -5,6 +5,9 @@
 #include <string>
 #include "klee/Debugger/Command.h"
 
+namespace {
+    const char* DEFAULT_MSG = "(kleedb) ";
+}
 namespace klee {
 class KDebugger;
 
@@ -12,7 +15,7 @@ class Prompt {
 
 public:
     Prompt(KDebugger *);
-    int show(const char *line);
+    int show(const char *line = DEFAULT_MSG);
     void breakFromLoop();
 
 private:

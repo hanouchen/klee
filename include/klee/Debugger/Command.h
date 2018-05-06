@@ -5,19 +5,20 @@
 namespace klee {
 
 enum CommandType {
-    cont, 
-    run, 
+    cont,
+    run,
     step,
-    quit, 
-    breakpoint, 
+    quit,
+    breakpoint,
+    killpoint,
     del,
     print,
     set,
-    info, 
-    state, 
+    info,
+    state,
     terminate,
     generate_input,
-    help, 
+    help,
     none
 };
 
@@ -26,6 +27,7 @@ enum class InfoOpt {
     constraints,
     state,
     breakpoints,
+    killpoints,
     states,
     statistics,
     invalid
@@ -73,7 +75,7 @@ extern clipp::group breakCmd;
 extern clipp::group infoCmd;
 extern clipp::group terminateCmd;
 extern clipp::group stateCmd;
-extern clipp::group cmds[13];
+extern clipp::group cmds[14];
 extern clipp::group cmdParser;
 extern clipp::group branchSelection;
 

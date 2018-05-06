@@ -72,6 +72,18 @@ group breakCmd = (
     })).doc("break argument:"),
     any_other(extraArgs));
 
+group killCmd = (
+    command("k", "kill").set(selected, CommandType::killpoint).
+    doc("Set a killpoint"),
+    group(value("file:line", bpString).
+    doc("File name and line number to set a killpoint on\n").
+    if_missing([] {
+        if (selected == CommandType::killpoint) {
+            llvm::outs() << "Please enter a file name and a line to kill.\n";
+        }
+    })).doc("kill argument:"),
+    any_other(extraArgs));
+
 group deleteCmd = (
     command("d", "del").set(selected, CommandType::del).
     doc("Delete a breakpoint"),
@@ -113,6 +125,8 @@ group infoCmd = (
     one_of(
         option("break").set(infoOpt, InfoOpt::breakpoints).
         doc("List all breakpoints"),
+        option("killpoints").set(infoOpt, InfoOpt::killpoints).
+        doc("List all killpoints"),
         option("states").set(infoOpt, InfoOpt::states).
         doc("List all states"),
         option("stack").set(infoOpt, InfoOpt::stack).
@@ -167,13 +181,14 @@ group generateConcreteInputCmd = ((
     ).doc("generate-input options:"),
     any_other(extraArgs)));
 
-group cmds[13] = {
+group cmds[14] = {
     continueCmd,
     runCmd,
     stepCmd,
     quitCmd,
     helpCmd,
     breakCmd,
+    killCmd,
     deleteCmd,
     printCmd,
     setCmd,
@@ -191,6 +206,7 @@ group cmdParser = one_of(
     helpCmd,
     breakCmd,
     deleteCmd,
+    killCmd,
     printCmd,
     setCmd,
     infoCmd,

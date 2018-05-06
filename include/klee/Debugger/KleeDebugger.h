@@ -41,12 +41,12 @@ private:
     StatsTracker *statsTracker;
     std::vector<Breakpoint> breakpoints;
     llvm::Module *module;
-    std::unordered_map<std::string, bool> breakTable;
+    std::unordered_map<std::string, unsigned> breakTable;
+    std::unordered_map<std::string, unsigned> killTable;
     bool step;
     static void (KDebugger::*processors[])(std::string &);
 
     void checkBreakpoint(ExecutionState &state);
-    void showPromptAtInstruction(const KInstruction *);
 
     void processContinue(std::string &);
     void processRun(std::string &);
@@ -66,7 +66,7 @@ private:
     void printAllStates();
     void printState(ExecutionState *);
     void printStack(ExecutionState *);
-    void printCode(ExecutionState *);
+    void printCode(ExecutionState *, bool printAssembly = true);
     void printConstraints(ExecutionState *);
 
     const MemoryObject *getMemoryObjectBySymbol(std::string &);
