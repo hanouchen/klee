@@ -9,6 +9,7 @@
 klee_add_component(kleeDebugger
   linenoise.c
   Command.cpp
+  DebugSymbolTable.cpp
   Prompt.cpp
   KleeDebugger.cpp
   Breakpoint.cpp

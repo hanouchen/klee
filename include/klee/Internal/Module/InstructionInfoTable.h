@@ -14,14 +14,7 @@
 #include <string>
 #include <set>
 
-// #include <ciso646>
-// #ifdef _LIBCPP_VERSION
 #include <unordered_map>
-// #define unordered_map std::unordered_map
-// #else
-// #include <tr1/unordered_map>
-// #define unordered_map std::tr1::unordered_map
-// #endif
 
 namespace llvm {
   class Function;

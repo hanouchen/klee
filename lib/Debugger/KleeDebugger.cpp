@@ -23,6 +23,7 @@
 #include "klee/Debugger/KleeDebugger.h"
 #include "klee/Debugger/Prompt.h"
 #include "klee/Debugger/linenoise.h"
+#include "klee/Debugger/DebugSymbolTable.h"
 #include "klee/Internal/Support/ErrorHandling.h"
 #include "klee/Statistics.h"
 
@@ -285,26 +286,25 @@ void KDebugger::processDelete(std::string &) {
 
 void KDebugger::processPrint(std::string &) {
     llvm::outs() << "Printing variable: " << var << "\n";
-    auto stackFrame = searcher->currentState()->stack.back();
-    auto func = stackFrame.kf->function;
-
-    auto mo = getMemoryObjectBySymbol(var);
-    if (mo) {
-        auto os = searcher->currentState()->addressSpace.findObject(mo);
-        if (os) {
-            os->print();
+    auto &stack = searcher->currentState()->stack;
+    auto &sf = stack.back();
+    auto value = sf.st.lookup(var);
+    if (value != nullptr) {
+        auto state = searcher->currentState();
+        Expr::Width type = executor->getWidthForLLVMType(value->type);
+        auto addr = value->address;
+        if (!isa<ConstantExpr>(addr))
+            addr = state->constraints.simplifyExpr(addr);
+        ObjectPair op;
+        bool success;
+        state->addressSpace.resolveOne(*state, executor->solver, addr, op, success);
+        if (success) {
+            auto mo = op.first;
+            auto os = op.second;
+            llvm::outs() << os->read(mo->getOffsetExpr(addr), type) << "\n";
             return;
         }
     }
-
-    auto &st = func->getValueSymbolTable();
-    auto value = st.lookup(llvm::StringRef(var.c_str()));
-
-    if (value) {
-        value->dump();
-        return;
-    }
-
     llvm::outs() << "Unable to print variable information\n";
 }
 
@@ -355,8 +355,8 @@ void KDebugger::processState(std::string &msg) {
     llvm::outs() <<  "Moved to state @";
     llvm::outs().write_hex((unsigned long long)state);
     llvm::outs() << "\n";
-    msg = getFileFromPath(state->pc->info->file) + ", line " +
-          std::to_string(state->pc->info->line) + "> ";
+    // msg = getFileFromPath(state->pc->info->file) + ", line " +
+    //       std::to_string(state->pc->info->line) + "> ";
 }
 
 void KDebugger::selectBranch(int idx, std::string &msg) {

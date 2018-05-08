@@ -49,6 +49,7 @@
 #include "klee/Internal/System/MemoryUsage.h"
 #include "klee/SolverStats.h"
 
+#include "llvm/DebugInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -1191,6 +1192,11 @@ void Executor::executeCall(ExecutionState &state,
     switch(f->getIntrinsicID()) {
     case Intrinsic::not_intrinsic:
       // state may be destroyed by this call, cannot touch
+      
+    // llvm::outs() << "-------------------------------------------------------";
+    // state.stack.back().kf->function->print(llvm::outs());
+    // llvm::outs() << "\n";
+
       callExternalFunction(state, ki, f, arguments);
       break;
         
@@ -1664,8 +1670,22 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     Function *f = getTargetFunction(fp, state);
 
     // Skip debug intrinsics, we can't evaluate their metadata arguments.
-    if (f && isDebugIntrinsic(f, kmodule))
+    if (f && isDebugIntrinsic(f, kmodule)) {
+      auto &stack = state.stack;
+      auto &sf = stack.back();
+      DebugSymbolTable &st = sf.st;
+      llvm::Value *val = NULL;
+      llvm::MDNode *var = NULL;
+      std::string name = {};
+      if (llvm::DbgDeclareInst *declareI = dyn_cast<DbgDeclareInst>(i)) {
+        val = declareI->getAddress();
+        var = declareI->getVariable();
+        llvm::DIVariable diVar(var);
+        std::string symbol(diVar.getName().str());
+        st.bindAddress(symbol, declareI->getAddress(), sf);
+      }
       break;
+    }
 
     if (isa<InlineAsm>(fp)) {
       terminateStateOnExecError(state, "inline assembly is unsupported");
@@ -1675,7 +1695,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     std::vector< ref<Expr> > arguments;
     arguments.reserve(numArgs);
 
-    for (unsigned j=0; j<numArgs; ++j)
+    for (unsigned j=0; j<numArgs; ++j) 
       arguments.push_back(eval(ki, j+1, state).value);
     
     if (f) {

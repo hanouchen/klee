@@ -13,6 +13,7 @@
 #include "klee/Constraints.h"
 #include "klee/Expr.h"
 #include "klee/Debugger/Breakpoint.h"
+#include "klee/Debugger/DebugSymbolTable.h"
 #include "klee/Internal/ADT/TreeStream.h"
 #include "klee/MergeHandler.h"
 
@@ -23,7 +24,6 @@
 #include <map>
 #include <set>
 #include <vector>
-
 namespace klee {
 class Array;
 class CallPathNode;
@@ -40,6 +40,7 @@ struct StackFrame {
   KInstIterator caller;
   KFunction *kf;
   CallPathNode *callPathNode;
+  DebugSymbolTable st;
 
   std::vector<const MemoryObject *> allocas;
   Cell *locals;
@@ -57,7 +58,7 @@ struct StackFrame {
   // does not pass vaarg through as expected). VACopy is lowered inside
   // of intrinsic lowering.
   MemoryObject *varargs;
-
+  
   StackFrame(KInstIterator caller, KFunction *kf);
   StackFrame(const StackFrame &s);
   ~StackFrame();
