@@ -56,6 +56,8 @@ private:
     void processBreakpoint(std::string &);
     void processDelete(std::string &);
     void processPrint(std::string &);
+    void processPrintRegister(std::string &);
+    void processCodeListing(std::string &);
     void processSet(std::string &);
     void processInfo(std::string &);
     void processState(std::string &);

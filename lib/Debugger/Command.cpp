@@ -21,6 +21,8 @@ std::string bpString = "";
 // String for print command to store variable name
 std::string var = "";
 
+std::string location = "";
+
 // Any extra (invalid) arguments for a command
 std::vector<std::string> extraArgs;
 std::vector<unsigned> breakpointNumbers;
@@ -31,6 +33,7 @@ std::string stateAddrHex = "";
 // execution on when execution branches.
 bool stopUponBranching = false;
 int stateIdx = 0;
+int regNumber = -1;
 
 group continueCmd = (
     command("c", "continue").set(selected, CommandType::cont).
@@ -108,6 +111,20 @@ group printCmd = (
     })).doc("print argument:"),
     any_other(extraArgs));
 
+group printRegCmd = (
+    command("pr", "printr").set(selected, CommandType::print_register).
+    doc("Print the content of a register"),
+    group(value("reg-number", regNumber).
+          doc("Number of the register to print\n")).doc("print register argument:"),
+    any_other(extraArgs));
+
+group listCmd = (
+    command("list").set(selected, CommandType::list).
+    doc("List code at a given location"),
+    group(opt_value("location", location).
+          doc("List code of the given location\n")).doc("list argument:"),
+    any_other(extraArgs));
+
 group setCmd = (
     command("set").set(selected, CommandType::set).
     doc("Set the value of a variable"),
@@ -181,7 +198,7 @@ group generateConcreteInputCmd = ((
     ).doc("generate-input options:"),
     any_other(extraArgs)));
 
-group cmds[14] = {
+group cmds[16] = {
     continueCmd,
     runCmd,
     stepCmd,
@@ -191,6 +208,8 @@ group cmds[14] = {
     killCmd,
     deleteCmd,
     printCmd,
+    printRegCmd,
+    listCmd,
     setCmd,
     infoCmd,
     stateCmd,
@@ -208,6 +227,8 @@ group cmdParser = one_of(
     deleteCmd,
     killCmd,
     printCmd,
+    printRegCmd,
+    listCmd,
     setCmd,
     infoCmd,
     stateCmd,

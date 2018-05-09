@@ -13,7 +13,11 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/DebugInfo.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueSymbolTable.h"
@@ -47,6 +51,25 @@ std::string getSourceLine(const std::string &file, unsigned line) {
     return res;
 }
 
+std::string getSourceLines(const std::string &file, int from, int to) {
+    std::string codeBlock = {};
+    std::string line = {};
+    std::ifstream in;
+    in.open(file.c_str());
+    if (!in.fail()) {
+        for (int i = 1; i <= to; ++i) {
+            std::getline(in, line);
+            if (i >= from) codeBlock += std::to_string(i) + "\t" + line + "\n";
+            if (in.eof()) {
+                line = "";
+                break;
+            }
+        }
+        in.close();
+    }
+    return codeBlock;
+}
+
 std::string getFileFromPath(const std::string &fullPath) {
     size_t i = fullPath.find_last_of('/');
     if (i == std::string::npos) {
@@ -76,6 +99,8 @@ void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
     &KDebugger::processBreakpoint,
     &KDebugger::processDelete,
     &KDebugger::processPrint,
+    &KDebugger::processPrintRegister,
+    &KDebugger::processCodeListing,
     &KDebugger::processSet,
     &KDebugger::processInfo,
     &KDebugger::processState,
@@ -158,11 +183,12 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
         return;
     }
     auto ki = state.pc;
-    unsigned bp = breakTable[fileLine];
-    if (bp) {
+    unsigned &bp = breakTable[fileLine];
+
+    if (bp > 0) {
         std::string file = getFileFromPath(ki->info->file);
         llvm::outs() << "\nBreakpoint " << bp << ", at "  << file << ":" << ki->info->line << "\n";
-        printCode(searcher->currentState(), false);
+        printCode(searcher->currentState(), true);
         prompt.show();
     }
 }
@@ -211,7 +237,7 @@ void KDebugger::processRun(std::string &) {
 void KDebugger::processStep(std::string &) {
     step = true;
     auto state = searcher->currentState();
-    printCode(state);
+    printCode(state, true);
     prompt.breakFromLoop();
 }
 
@@ -308,6 +334,80 @@ void KDebugger::processPrint(std::string &) {
     llvm::outs() << "Unable to print variable information\n";
 }
 
+void KDebugger::processPrintRegister(std::string&) {
+    auto state = searcher->currentState();
+    auto &sf = state->stack.back();
+    auto kf = sf.kf;
+    if (regNumber < 1 || regNumber > kf->numRegisters) {
+        llvm::outs() << "Only registers 1 - " << kf->numRegisters << " are available\n";
+        return;
+    }
+    llvm::outs() << "Printing contents of register #" << regNumber << "\n";
+    auto expr = sf.locals[regNumber - 1].value;
+    if (expr.isNull()) {
+        llvm::outs() << "Null\n";
+    } else {
+        llvm::outs() << expr << "\n";
+    }
+}
+
+void KDebugger::processCodeListing(std::string &) {
+    int lineNumber = 0;
+    std::string file = {};
+    bool lineProvided = false;
+    auto state = searcher->currentState();
+    if (location == "") {
+        lineNumber = state->pc->info->line;
+        file = state->pc->info->file;
+    } else {
+        std::stringstream ss(location);
+        if (ss >> lineNumber) {
+            lineProvided = true;
+        }
+    }
+
+    if (file == "") {
+        auto inst= state->pc->inst;
+        auto f = inst->getParent()->getParent();
+
+        llvm::DebugInfoFinder DbgFinder;
+        DbgFinder.processModule(*f->getParent());
+        for (llvm::DebugInfoFinder::iterator fIt = DbgFinder.subprogram_begin(),
+                                        fItE = DbgFinder.subprogram_end(); fIt != fItE; ++fIt) {
+            llvm::DISubprogram SubP(*fIt);
+            if (SubP.getFunction() == 0)
+            continue;
+            if (!lineProvided && SubP.getFunction()->getName().str() == location) {
+                file = SubP.getFilename();
+                lineNumber = SubP.getLineNumber();
+                llvm::outs() << lineNumber << "\n";
+                break;
+            }
+            if (lineProvided && SubP.getFunction() == f) {
+                file = SubP.getFilename();
+                break;
+            }
+        }
+    }
+
+    int from = std::max(1, lineNumber - 4);
+    int to = lineNumber + (9 - (lineNumber - from));
+
+    std::string code = getSourceLines(file, from, to);
+    if (code != "") {
+        llvm::outs() << code;
+        location = {};
+        return;
+    }
+    if (lineProvided) {
+        llvm::outs() << "Line " << lineNumber << " ";
+    } else {
+        llvm::outs() << "Function " << location << " ";
+    }
+    llvm::outs() << "out of range.\n";
+    location = {};
+}
+
 void KDebugger::processSet(std::string &) {
     llvm::outs() << "Setting variable: " << var << "\n";
     auto state = searcher->currentState();
@@ -355,8 +455,6 @@ void KDebugger::processState(std::string &msg) {
     llvm::outs() <<  "Moved to state @";
     llvm::outs().write_hex((unsigned long long)state);
     llvm::outs() << "\n";
-    // msg = getFileFromPath(state->pc->info->file) + ", line " +
-    //       std::to_string(state->pc->info->line) + "> ";
 }
 
 void KDebugger::selectBranch(int idx, std::string &msg) {
@@ -518,14 +616,14 @@ void KDebugger::printCode(ExecutionState *state, bool printAssembly) {
     auto info = state->pc->info;
     if (info->file == "") {
         llvm::outs()  << "No corresponding source information\n";
-        return;
+    } else {
+        std::string line = getSourceLine(info->file, info->line);
+        size_t first = line.find_first_not_of(' ');
+        std::string trimmed = line.substr(first, line.size() - first + 1);
+        llvm::outs() << "loc: " << info->file << ":" << info->line << "\n";
+        llvm::outs() << "source: " << trimmed << "\n";
+        state->pc->printFileLine();
     }
-    std::string line = getSourceLine(info->file, info->line);
-    size_t first = line.find_first_not_of(' ');
-    std::string trimmed = line.substr(first, line.size() - first + 1);
-    llvm::outs() << "loc: " << info->file << ":" << info->line << "\n";
-    llvm::outs() << "source: " << trimmed << "\n";
-    state->pc->printFileLine();
     if (printAssembly) {
         llvm::outs() << "assembly:";
         state->pc->inst->print(llvm::outs());

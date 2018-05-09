@@ -1674,11 +1674,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       auto &stack = state.stack;
       auto &sf = stack.back();
       DebugSymbolTable &st = sf.st;
-      llvm::Value *val = NULL;
       llvm::MDNode *var = NULL;
       std::string name = {};
       if (llvm::DbgDeclareInst *declareI = dyn_cast<DbgDeclareInst>(i)) {
-        val = declareI->getAddress();
         var = declareI->getVariable();
         llvm::DIVariable diVar(var);
         std::string symbol(diVar.getName().str());

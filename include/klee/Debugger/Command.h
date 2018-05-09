@@ -13,6 +13,8 @@ enum CommandType {
     killpoint,
     del,
     print,
+    print_register,
+    list,
     set,
     info,
     state,
@@ -65,17 +67,10 @@ extern InfoOpt infoOpt;
 extern StateOpt dir;
 extern TerminateOpt termOpt;
 extern GenerateInputOpt generateInputOpt;
+extern std::string location;
+extern int regNumber;
 
-extern clipp::group continueCmd;
-extern clipp::group runCmd;
-extern clipp::group stepCmd;
-extern clipp::group quitCmd;
-extern clipp::group helpCmd;
-extern clipp::group breakCmd;
-extern clipp::group infoCmd;
-extern clipp::group terminateCmd;
-extern clipp::group stateCmd;
-extern clipp::group cmds[14];
+extern clipp::group cmds[16];
 extern clipp::group cmdParser;
 extern clipp::group branchSelection;
 
