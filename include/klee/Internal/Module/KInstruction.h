@@ -41,6 +41,7 @@ namespace klee {
     int *operands;
     /// Destination register index.
     unsigned dest;
+    bool breakPoint;
 
   public:
     virtual ~KInstruction();

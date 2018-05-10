@@ -1681,6 +1681,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         llvm::DIVariable diVar(var);
         std::string symbol(diVar.getName().str());
         st.bindAddress(symbol, declareI->getAddress(), sf);
+      } else if (llvm::DbgValueInst *valueI = dyn_cast<DbgValueInst>(i)) {
+        var = valueI->getVariable();
+        llvm::DIVariable diVar(var);
+        std::string symbol(diVar.getName().str());
+        st.updateValue(symbol, valueI->getValue());
       }
       break;
     }

@@ -31,6 +31,7 @@ DebugSymbolTable() : table() {}
 DebugSymbolTable(const DebugSymbolTable &s) : table(s.table) {}
 
 bool bindAddress(std::string &symbol, llvm::Value *address, StackFrame &sf);
+void updateValue(std::string &symbol, llvm::Value *value);
 
 SymbolValue *lookup(std::string &symbol);
 

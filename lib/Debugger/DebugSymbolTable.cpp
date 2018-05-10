@@ -40,6 +40,15 @@ bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, St
     return false;
 }
 
+void DebugSymbolTable::updateValue(std::string &symbol, llvm::Value *value) {
+    auto it = table.find(symbol);
+    SymbolValue symbolValue;
+    SymbolValue &sv = (it != table.end()) ? it->second : symbolValue;
+    sv.hasValue = true;
+    sv.value = value;
+    table[symbol] = sv;
+}
+
 SymbolValue *DebugSymbolTable::lookup(std::string &symbol) {
     return table.find(symbol) == table.end() ? nullptr : &table[symbol];
 }

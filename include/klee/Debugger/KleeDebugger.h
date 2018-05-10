@@ -41,7 +41,7 @@ private:
     StatsTracker *statsTracker;
     std::vector<Breakpoint> breakpoints;
     llvm::Module *module;
-    std::unordered_map<std::string, unsigned> breakTable;
+    std::unordered_map<std::string, int> breakTable;
     std::unordered_map<std::string, unsigned> killTable;
     bool step;
     static void (KDebugger::*processors[])(std::string &);

@@ -173,21 +173,26 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
     if (breakpoints.empty() || !state.pc) {
         return;
     }
+    auto ki = state.pc;
+    std::string file = getFileFromPath(ki->info->file);
+    std::string line = std::to_string(ki->info->line);
     std::string fileLine = getFileFromPath(state.pc->info->file) +
                            std::to_string(state.pc->info->line);
     if (killTable[fileLine]) {
         std::string str;
+        llvm::outs() << "\nKillpoint " << killTable[fileLine] << ", at "  << file << ":" << line << "\n";
         termOpt = TerminateOpt::current;
         processTerminate(str);
         prompt.breakFromLoop();
         return;
     }
-    auto ki = state.pc;
-    unsigned &bp = breakTable[fileLine];
-
+    int &bp = breakTable[fileLine];
     if (bp > 0) {
-        std::string file = getFileFromPath(ki->info->file);
-        llvm::outs() << "\nBreakpoint " << bp << ", at "  << file << ":" << ki->info->line << "\n";
+        ki->breakPoint = true;
+        bp *= -1;
+    }
+    if (bp < 0 && ki->breakPoint) {
+        llvm::outs() << "\nBreakpoint " << bp << ", at "  << file << ":" << line << "\n";
         printCode(searcher->currentState(), true);
         prompt.show();
     }
@@ -294,9 +299,9 @@ void KDebugger::processDelete(std::string &) {
             }
             return false;
         }), breakpoints.end());
-        llvm::outs() << (sz - breakpointNumbers.size()) << " breakpoints(killpoints) successfully removed.\n";
+        llvm::outs() << (sz - breakpointNumbers.size()) << " breakpoint(s)/killpoints(s) successfully removed.\n";
         if (breakpointNumbers.size()) {
-            llvm::outs() << "No breakpoints(killpoints) with the following number(s):\n";
+            llvm::outs() << "No breakpoint(s)/killpoint(s) with the following number(s):\n";
             for (auto num : breakpointNumbers) {
                 llvm::outs() << num << " ";
             }
@@ -314,11 +319,11 @@ void KDebugger::processPrint(std::string &) {
     llvm::outs() << "Printing variable: " << var << "\n";
     auto &stack = searcher->currentState()->stack;
     auto &sf = stack.back();
-    auto value = sf.st.lookup(var);
-    if (value != nullptr) {
+    auto svalue = sf.st.lookup(var);
+    if (svalue != nullptr && svalue->hasAddress) {
         auto state = searcher->currentState();
-        Expr::Width type = executor->getWidthForLLVMType(value->type);
-        auto addr = value->address;
+        Expr::Width type = executor->getWidthForLLVMType(svalue->type);
+        auto addr = svalue->address;
         if (!isa<ConstantExpr>(addr))
             addr = state->constraints.simplifyExpr(addr);
         ObjectPair op;
@@ -330,15 +335,37 @@ void KDebugger::processPrint(std::string &) {
             llvm::outs() << os->read(mo->getOffsetExpr(addr), type) << "\n";
             return;
         }
+    } else {
+        auto state = searcher->currentState();
+        int regIdx = -1;
+        llvm::Value *value = nullptr;
+        if (svalue && svalue->hasValue) value = svalue->value;
+        for (unsigned i = 0; i < sf.kf->numInstructions; ++i) {
+            std::string temp = sf.kf->instructions[i]->inst->getName().str();
+            auto res = std::mismatch(var.begin(), var.end(), temp.begin());
+            if (sf.kf->instructions[i]->inst == value || res.first == var.end()) {
+                regIdx = sf.kf->instructions[i]->dest;
+                llvm::outs() << temp << "\n";
+            }
+            if (state->pc == sf.kf->instructions[i]) {
+                break;
+            }
+        }
+        if (regIdx != -1) {
+            llvm::outs() << sf.locals[regIdx].value << "\n";
+        } else if (value) {
+            value->dump();
+        } else {
+            llvm::outs() << "Unable to print variable information\n";
+        }
     }
-    llvm::outs() << "Unable to print variable information\n";
 }
 
 void KDebugger::processPrintRegister(std::string&) {
     auto state = searcher->currentState();
     auto &sf = state->stack.back();
     auto kf = sf.kf;
-    if (regNumber < 1 || regNumber > kf->numRegisters) {
+    if (regNumber < 1 || regNumber > (int)kf->numRegisters) {
         llvm::outs() << "Only registers 1 - " << kf->numRegisters << " are available\n";
         return;
     }
@@ -535,14 +562,11 @@ void KDebugger::processHelp(std::string &) {
 }
 
 void KDebugger::printBreakpoints() {
-    const unsigned fileCol = 9;
-    const unsigned lineCol = 36;
+    const unsigned locationCol = 9;
     llvm::formatted_raw_ostream fo(llvm::outs());
     fo << "Num";
-    fo.PadToColumn(fileCol);
-    fo << "File";
-    fo.PadToColumn(lineCol);
-    fo << "Line\n";
+    fo.PadToColumn(locationCol);
+    fo << "Location\n";
     for (auto & bp : breakpoints) {
         if (bp.type == PType::breakpoint && infoOpt == InfoOpt::killpoints) {
             continue;
@@ -551,10 +575,8 @@ void KDebugger::printBreakpoints() {
             continue;
         }
         fo << bp.idx;
-        fo.PadToColumn(fileCol);
-        fo << bp.file;
-        fo.PadToColumn(lineCol);
-        fo << bp.line << "\n";
+        fo.PadToColumn(locationCol);
+        fo << bp.file << ":" << bp.line << "\n";
     }
 }
 
