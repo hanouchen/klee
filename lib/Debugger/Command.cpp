@@ -48,9 +48,14 @@ group runCmd = (
     doc("Continue execution until the end of program"),
     any_other(extraArgs));
 
+group stepInstCmd = (
+    command("si", "stepi").set(selected, CommandType::step_instruction).
+    doc("Step one assembly instruction"),
+    any_other(extraArgs));
+
 group stepCmd = (
     command("s", "step").set(selected, CommandType::step).
-    doc("Step one assembly instruction"),
+    doc("Step one source line"),
     any_other(extraArgs));
 
 group quitCmd = (
@@ -198,10 +203,11 @@ group generateConcreteInputCmd = ((
     ).doc("generate-input options:"),
     any_other(extraArgs)));
 
-group cmds[16] = {
+group cmds[17] = {
     continueCmd,
     runCmd,
     stepCmd,
+    stepInstCmd,
     quitCmd,
     helpCmd,
     breakCmd,

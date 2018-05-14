@@ -27,18 +27,36 @@ struct SymbolValue {
 class DebugSymbolTable {
 
 public:
-DebugSymbolTable() : table() {}
-DebugSymbolTable(const DebugSymbolTable &s) : table(s.table) {}
+~DebugSymbolTable();
+DebugSymbolTable() : table(), parent(0), child(0), scope(0) {}
+DebugSymbolTable(const DebugSymbolTable &s) :
+    table(s.table),
+    parent(0),
+    child(0),
+    scope(s.scope) {
 
-bool bindAddress(std::string &symbol, llvm::Value *address, StackFrame &sf);
+    if (s.parent) {
+        parent = new DebugSymbolTable(*s.parent);
+    }
+
+    if (s.child) {
+        child = new DebugSymbolTable(*s.child);
+    }
+}
+
+bool bindAddress(std::string &symbol, llvm::Value *address, StackFrame &sf, llvm::Value *scope);
 void updateValue(std::string &symbol, llvm::Value *value);
 
-SymbolValue *lookup(std::string &symbol);
+SymbolValue *lookup(std::string &symbol, llvm::Value *scope);
 
+void destroy();
 
 
 private:
 std::unordered_map<std::string, SymbolValue> table;
+DebugSymbolTable *parent;
+DebugSymbolTable *child;
+llvm::Value *scope;
 
 };
 

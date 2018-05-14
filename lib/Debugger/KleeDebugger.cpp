@@ -29,6 +29,7 @@
 #include "klee/Debugger/linenoise.h"
 #include "klee/Debugger/DebugSymbolTable.h"
 #include "klee/Internal/Support/ErrorHandling.h"
+#include "klee/Internal/Module/KInstruction.h"
 #include "klee/Statistics.h"
 
 namespace klee {
@@ -94,6 +95,7 @@ void (KDebugger::*(KDebugger::processors)[])(std::string &) = {
     &KDebugger::processContinue,
     &KDebugger::processRun,
     &KDebugger::processStep,
+    &KDebugger::processStepInstruction,
     &KDebugger::processQuit,
     &KDebugger::processBreakpoint,
     &KDebugger::processBreakpoint,
@@ -116,24 +118,26 @@ KDebugger::KDebugger() :
     breakpoints(),
     breakTable(),
     killTable(),
-    step(true) {}
+    step(true),
+    stepi(true) {}
 
 void KDebugger::preprocess() {
     if (klee_interrupted()) {
         step = false;
+        stepi = false;
         set_interrupted(false);
         set_halt_execution(false);
         prompt.show(MSG_INTERRUPTED);
     }
 
-    if (step || searcher->newStates()) {
+    if (step || stepi || searcher->newStates()) {
         // Check if execution branched.
         if (searcher->newStates()) {
             unsigned int newStates = searcher->newStates();
             auto states = searcher->getStates();
             llvm::outs().changeColor(llvm::raw_ostream::GREEN);
             llvm::outs() << "Execution branched\n";
-            if (step || stopUponBranching) {
+            if (step || stepi || stopUponBranching) {
                 unsigned int cnt = 0;
                 for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
                     llvm::outs().changeColor(llvm::raw_ostream::CYAN);
@@ -156,9 +160,14 @@ void KDebugger::preprocess() {
                 checkBreakpoint(*searcher->currentState());
             }
         } else {
-            step = false;
-            prompt.show();
-            return;
+            auto pc = searcher->currentState()->pc;
+            auto prev = searcher->currentState()->prevPC;
+            if (stepi || !prev || getFileFromPath(pc->info->file) != getFileFromPath(prev->info->file) || pc->info->line != prev->info->line) {
+                stepi = false;
+                step = false;
+                prompt.show();
+                return;
+            }
         }
     } else {
         checkBreakpoint(*searcher->currentState());
@@ -188,11 +197,14 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
     }
     int &bp = breakTable[fileLine];
     if (bp > 0) {
+        if (!state.pc->inst->getMetadata("dbg")) {
+            return;
+        }
         ki->breakPoint = true;
         bp *= -1;
     }
     if (bp < 0 && ki->breakPoint) {
-        llvm::outs() << "\nBreakpoint " << bp << ", at "  << file << ":" << line << "\n";
+        llvm::outs() << "\nBreakpoint " << (-bp) << ", at "  << file << ":" << line << "\n";
         printCode(searcher->currentState(), true);
         prompt.show();
     }
@@ -241,6 +253,13 @@ void KDebugger::processRun(std::string &) {
 
 void KDebugger::processStep(std::string &) {
     step = true;
+    auto state = searcher->currentState();
+    printCode(state, true);
+    prompt.breakFromLoop();
+}
+
+void KDebugger::processStepInstruction(std::string &) {
+    stepi = true;
     auto state = searcher->currentState();
     printCode(state, true);
     prompt.breakFromLoop();
@@ -317,9 +336,18 @@ void KDebugger::processDelete(std::string &) {
 
 void KDebugger::processPrint(std::string &) {
     llvm::outs() << "Printing variable: " << var << "\n";
+    llvm::MDNode *md = searcher->currentState()->prevPC->inst->getMetadata("dbg");
+    llvm::Value *scope = nullptr;
+    if (md) {
+        scope = md->getOperand(2);
+    }
     auto &stack = searcher->currentState()->stack;
     auto &sf = stack.back();
-    auto svalue = sf.st.lookup(var);
+    auto svalue = sf.st.lookup(var, scope);
+    if (!svalue) {
+        llvm::outs() << "Unable to print variable information\n";
+        return;
+    }
     if (svalue != nullptr && svalue->hasAddress) {
         auto state = searcher->currentState();
         Expr::Width type = executor->getWidthForLLVMType(svalue->type);
@@ -467,6 +495,9 @@ void KDebugger::processInfo(std::string &) {
 void KDebugger::processState(std::string &msg) {
     if (stateAddrHex.size()) {
         char *res = 0;
+        if (stateAddrHex.size() >= 2 && stateAddrHex[0] == '0' && stateAddrHex[1] == 'x') {
+            stateAddrHex = stateAddrHex.substr(2);
+        }
         unsigned long long addr = strtoul(stateAddrHex.c_str(), &res, 16);
         if (*res != 0) {
             llvm::outs() << "Please enter a valid address (hex number) \n";
@@ -635,16 +666,18 @@ void KDebugger::printState(ExecutionState *state) {
 
 void KDebugger::printCode(ExecutionState *state, bool printAssembly) {
     assert(state);
-    auto info = state->pc->info;
-    if (info->file == "") {
+
+    auto file = state->pc->info->file;
+    auto line = state->pc->info->line;
+
+    if (file == "") {
         llvm::outs()  << "No corresponding source information\n";
     } else {
-        std::string line = getSourceLine(info->file, info->line);
-        size_t first = line.find_first_not_of(' ');
-        std::string trimmed = line.substr(first, line.size() - first + 1);
-        llvm::outs() << "loc: " << info->file << ":" << info->line << "\n";
+        std::string source = getSourceLine(file, line);
+        size_t first = source.find_first_not_of(' ');
+        std::string trimmed = source.substr(first, source.size() - first + 1);
+        llvm::outs() << "loc: " << file << ":" << line << "\n";
         llvm::outs() << "source: " << trimmed << "\n";
-        state->pc->printFileLine();
     }
     if (printAssembly) {
         llvm::outs() << "assembly:";

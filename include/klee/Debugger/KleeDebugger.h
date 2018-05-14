@@ -44,6 +44,7 @@ private:
     std::unordered_map<std::string, int> breakTable;
     std::unordered_map<std::string, unsigned> killTable;
     bool step;
+    bool stepi;
     static void (KDebugger::*processors[])(std::string &);
 
     void checkBreakpoint(ExecutionState &state);
@@ -51,6 +52,7 @@ private:
     void processContinue(std::string &);
     void processRun(std::string &);
     void processStep(std::string &);
+    void processStepInstruction(std::string &);
     void processQuit(std::string &);
     void processHelp(std::string &);
     void processBreakpoint(std::string &);

@@ -1671,21 +1671,27 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Skip debug intrinsics, we can't evaluate their metadata arguments.
     if (f && isDebugIntrinsic(f, kmodule)) {
-      auto &stack = state.stack;
-      auto &sf = stack.back();
-      DebugSymbolTable &st = sf.st;
-      llvm::MDNode *var = NULL;
-      std::string name = {};
-      if (llvm::DbgDeclareInst *declareI = dyn_cast<DbgDeclareInst>(i)) {
-        var = declareI->getVariable();
-        llvm::DIVariable diVar(var);
-        std::string symbol(diVar.getName().str());
-        st.bindAddress(symbol, declareI->getAddress(), sf);
-      } else if (llvm::DbgValueInst *valueI = dyn_cast<DbgValueInst>(i)) {
-        var = valueI->getVariable();
-        llvm::DIVariable diVar(var);
-        std::string symbol(diVar.getName().str());
-        st.updateValue(symbol, valueI->getValue());
+      if (debugger) {
+        auto &stack = state.stack;
+        auto &sf = stack.back();
+        DebugSymbolTable &st = sf.st;
+        llvm::MDNode *var = NULL;
+        std::string name = {};
+        if (llvm::DbgDeclareInst *declareI = dyn_cast<DbgDeclareInst>(i)) {
+          var = declareI->getVariable();
+          llvm::DIVariable diVar(var);
+          std::string symbol(diVar.getName().str());
+          if (llvm::MDNode *N = declareI->getMetadata("dbg")) {
+            st.bindAddress(symbol, declareI->getAddress(), sf, N->getOperand(2));
+          } else {
+            st.bindAddress(symbol, declareI->getAddress(), sf, nullptr);
+          }
+        } else if (llvm::DbgValueInst *valueI = dyn_cast<DbgValueInst>(i)) {
+          var = valueI->getVariable();
+          llvm::DIVariable diVar(var);
+          std::string symbol(diVar.getName().str());
+          st.updateValue(symbol, valueI->getValue());
+        }
       }
       break;
     }

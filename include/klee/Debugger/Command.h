@@ -8,6 +8,7 @@ enum CommandType {
     cont,
     run,
     step,
+    step_instruction,
     quit,
     breakpoint,
     killpoint,
@@ -70,7 +71,7 @@ extern GenerateInputOpt generateInputOpt;
 extern std::string location;
 extern int regNumber;
 
-extern clipp::group cmds[16];
+extern clipp::group cmds[17];
 extern clipp::group cmdParser;
 extern clipp::group branchSelection;
 
