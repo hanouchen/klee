@@ -1193,9 +1193,6 @@ void Executor::executeCall(ExecutionState &state,
     case Intrinsic::not_intrinsic:
       // state may be destroyed by this call, cannot touch
       
-    // llvm::outs() << "-------------------------------------------------------";
-    // state.stack.back().kf->function->print(llvm::outs());
-    // llvm::outs() << "\n";
 
       callExternalFunction(state, ki, f, arguments);
       break;
@@ -1690,7 +1687,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
           var = valueI->getVariable();
           llvm::DIVariable diVar(var);
           std::string symbol(diVar.getName().str());
-          st.updateValue(symbol, valueI->getValue());
+		  if (llvm::MDNode *N = valueI->getMetadata("dbg")) {
+			st.updateValue(symbol, valueI->getValue(), N->getOperand(2));
+		  } else {
+			st.updateValue(symbol, valueI->getValue(), nullptr);
+		  }
         }
       }
       break;

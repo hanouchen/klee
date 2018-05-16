@@ -17,7 +17,7 @@
 namespace klee {
 class DebugSearcher;
 class StatsTracker;
-class KInstruction;
+struct KInstruction;
 class KInstIterator;
 class Executor;
 

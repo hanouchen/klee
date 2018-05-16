@@ -45,7 +45,8 @@ DebugSymbolTable(const DebugSymbolTable &s) :
 }
 
 bool bindAddress(std::string &symbol, llvm::Value *address, StackFrame &sf, llvm::Value *scope);
-void updateValue(std::string &symbol, llvm::Value *value);
+//void updateValue(std::string &symbol, llvm::Value *value);
+void updateValue(std::string &symbol, llvm::Value *value, llvm::Value *scope);
 
 SymbolValue *lookup(std::string &symbol, llvm::Value *scope);
 

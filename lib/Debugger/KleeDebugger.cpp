@@ -162,6 +162,15 @@ void KDebugger::preprocess() {
         } else {
             auto pc = searcher->currentState()->pc;
             auto prev = searcher->currentState()->prevPC;
+
+			if (!stepi && pc->info->file == "") {
+				return;
+			}
+
+			if (!stepi && !pc->inst->getMetadata("dbg")) {
+				return;
+			}
+
             if (stepi || !prev || getFileFromPath(pc->info->file) != getFileFromPath(prev->info->file) || pc->info->line != prev->info->line) {
                 stepi = false;
                 step = false;
@@ -182,14 +191,23 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
     if (breakpoints.empty() || !state.pc) {
         return;
     }
+
     auto ki = state.pc;
     std::string file = getFileFromPath(ki->info->file);
+	if (file == "") return;
     std::string line = std::to_string(ki->info->line);
     std::string fileLine = getFileFromPath(state.pc->info->file) +
                            std::to_string(state.pc->info->line);
+	if (!state.pc->inst->getMetadata("dbg")) {
+		return;
+	}
     if (killTable[fileLine]) {
         std::string str;
+		state.pc->inst->dump();
+        llvm::outs().changeColor(llvm::raw_ostream::RED);
         llvm::outs() << "\nKillpoint " << killTable[fileLine] << ", at "  << file << ":" << line << "\n";
+        llvm::outs() << "Terminating current state @" << &state << "\n";
+        llvm::outs().changeColor(llvm::raw_ostream::WHITE);
         termOpt = TerminateOpt::current;
         processTerminate(str);
         prompt.breakFromLoop();
@@ -197,9 +215,6 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
     }
     int &bp = breakTable[fileLine];
     if (bp > 0) {
-        if (!state.pc->inst->getMetadata("dbg")) {
-            return;
-        }
         ki->breakPoint = true;
         bp *= -1;
     }
@@ -212,13 +227,14 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
 
 void KDebugger::handleCommand(std::vector<std::string> &input, std::string &msg) {
     selected = CommandType::none;
-    if ((step || stopUponBranching) && searcher->newStates()) {
+    if ((step || stepi || stopUponBranching) && searcher->newStates()) {
         auto res = clipp::parse(input, branchSelection);
         if (res) {
             selectBranch(stateIdx, msg);
         }
         return;
     }
+
     for (auto &cli : cmds) {
         std::vector<std::string> v;
         v.push_back(input[0]);
@@ -254,7 +270,7 @@ void KDebugger::processRun(std::string &) {
 void KDebugger::processStep(std::string &) {
     step = true;
     auto state = searcher->currentState();
-    printCode(state, true);
+    printCode(state, false);
     prompt.breakFromLoop();
 }
 
@@ -369,19 +385,19 @@ void KDebugger::processPrint(std::string &) {
         llvm::Value *value = nullptr;
         if (svalue && svalue->hasValue) value = svalue->value;
         for (unsigned i = 0; i < sf.kf->numInstructions; ++i) {
+            if (state->pc == sf.kf->instructions[i]) {
+                break;
+            }
             std::string temp = sf.kf->instructions[i]->inst->getName().str();
             auto res = std::mismatch(var.begin(), var.end(), temp.begin());
             if (sf.kf->instructions[i]->inst == value || res.first == var.end()) {
                 regIdx = sf.kf->instructions[i]->dest;
-                llvm::outs() << temp << "\n";
-            }
-            if (state->pc == sf.kf->instructions[i]) {
-                break;
             }
         }
         if (regIdx != -1) {
             llvm::outs() << sf.locals[regIdx].value << "\n";
         } else if (value) {
+			llvm::outs() << "Use value\n";
             value->dump();
         } else {
             llvm::outs() << "Unable to print variable information\n";
@@ -464,13 +480,32 @@ void KDebugger::processCodeListing(std::string &) {
 }
 
 void KDebugger::processSet(std::string &) {
-    llvm::outs() << "Setting variable: " << var << "\n";
-    auto state = searcher->currentState();
-
-    auto mo = getMemoryObjectBySymbol(var);
-    if (mo) {
-        executor->executeMakeSymbolic(*state, mo, var);
+    llvm::MDNode *md = searcher->currentState()->prevPC->inst->getMetadata("dbg");
+    llvm::Value *scope = nullptr;
+    if (md) {
+        scope = md->getOperand(2);
+    }
+    auto &stack = searcher->currentState()->stack;
+    auto &sf = stack.back();
+    auto svalue = sf.st.lookup(var, scope);
+    if (!svalue) {
+        llvm::outs() << "Unable to find variable " << var << "\n";
         return;
+    }
+    if (svalue != nullptr && svalue->hasAddress) {
+        auto state = searcher->currentState();
+        // Expr::Width type = executor->getWidthForLLVMType(svalue->type);
+        auto addr = svalue->address;
+        if (!isa<ConstantExpr>(addr))
+            addr = state->constraints.simplifyExpr(addr);
+        ObjectPair op;
+        bool success;
+        state->addressSpace.resolveOne(*state, executor->solver, addr, op, success);
+        if (success) {
+            executor->executeMakeSymbolic(*searcher->currentState(), op.first, var);
+            llvm::outs() << var << " is now symbolic\n";
+            return;
+        }
     }
 
     llvm::outs() << "Unable to find variable " << var << "\n";
@@ -674,10 +709,14 @@ void KDebugger::printCode(ExecutionState *state, bool printAssembly) {
         llvm::outs()  << "No corresponding source information\n";
     } else {
         std::string source = getSourceLine(file, line);
-        size_t first = source.find_first_not_of(' ');
-        std::string trimmed = source.substr(first, source.size() - first + 1);
-        llvm::outs() << "loc: " << file << ":" << line << "\n";
-        llvm::outs() << "source: " << trimmed << "\n";
+		if (source == "") {
+			llvm::outs()  << "No corresponding source information\n";
+		} else {
+			size_t first = source.find_first_not_of(' ');
+			std::string trimmed = source.substr(first, source.size() - first + 1);
+			llvm::outs() << "loc: " << file << ":" << line << "\n";
+			llvm::outs() << "source: " << trimmed << "\n";
+		}
     }
     if (printAssembly) {
         llvm::outs() << "assembly:";

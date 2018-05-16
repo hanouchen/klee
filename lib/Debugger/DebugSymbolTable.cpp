@@ -25,7 +25,7 @@ bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, St
         if (!child) {
             child = new DebugSymbolTable();
             child->scope = scope;
-            llvm::outs() << "Opening new scope\n";
+            // llvm::outs() << "Opening new scope\n";
         } else {
             llvm::MDNode *md = dyn_cast<llvm::MDNode>(scope);
             if (md) {
@@ -33,7 +33,7 @@ bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, St
                     child->destroy();
                     child = new DebugSymbolTable();
                     child->scope = scope;
-                    llvm::outs() << "Destory old scope for new one\n";
+                    // llvm::outs() << "Destory old scope for new one\n";
                 }
             }
         }
@@ -60,7 +60,6 @@ bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, St
                     return false;
                 }
                 sv.address = sf.locals[vnumber].value;
-                llvm::outs() << "Binding address " << sv.address << " to symbol " << symbol << "\n";
                 table[symbol] = sv;
                 return true;
             }
@@ -69,7 +68,26 @@ bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, St
     return false;
 }
 
-void DebugSymbolTable::updateValue(std::string &symbol, llvm::Value *value) {
+void DebugSymbolTable::updateValue(std::string &symbol, llvm::Value *value, llvm::Value *scope) {
+    // if (!this->scope) {
+    //     this->scope = scope;
+    // } else if (this->scope != scope) {
+    //     if (!child) {
+    //         child = new DebugSymbolTable();
+    //         child->scope = scope;
+    //     } else {
+    //         llvm::MDNode *md = dyn_cast<llvm::MDNode>(scope);
+    //         if (md) {
+    //             if (md->getOperand(2) == this->scope) {
+    //                 child->destroy();
+    //                 child = new DebugSymbolTable();
+    //                 child->scope = scope;
+    //                 llvm::outs() << "Destory old scope for new one\n";
+    //             }
+    //         }
+    //     }
+    //     child->updateValue(symbol, value, scope);
+    // }
     auto it = table.find(symbol);
     SymbolValue symbolValue;
     SymbolValue &sv = (it != table.end()) ? it->second : symbolValue;
