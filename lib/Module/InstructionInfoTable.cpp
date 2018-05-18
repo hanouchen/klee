@@ -107,6 +107,18 @@ bool InstructionInfoTable::getInstructionDebugInfo(llvm::Instruction *I,
                                                    unsigned &Line,
                                                    unsigned &Column,
                                                    LLVMContext &context) {
+
+  auto func = I->getParent()->getParent();
+  if (!I->getMetadata("dbg") && I->getParent() == &func->getEntryBlock()) {
+    auto it = functionInfos.find(func);
+    if (it != functionInfos.end()) {
+      auto &info = it->second;
+      File = internString(info.file);
+      Line = info.line;
+      Column = 0;
+      return true;
+    }
+  }
   DbgDeclareInst *DDI = 0;
   if (isa<AllocaInst>(I)) {
     DDI = FindAllocaDbgDeclare(I);
@@ -239,6 +251,20 @@ InstructionInfoTable::getInfo(const Instruction *inst) const {
   if (it == infos.end())
     llvm::report_fatal_error("invalid instruction, not present in "
                              "initial module!");
+  return it->second;
+}
+
+const InstructionInfo &
+InstructionInfoTable::getFunctionInfoByName(const std::string &name) const {
+  auto it = std::find_if(functionInfos.begin(), functionInfos.end(), 
+                        [&name](const std::pair<const llvm::Function *, InstructionInfo>& p) {
+     return p.first->getName().str() == name;
+  });
+
+  if (it == functionInfos.end()) {
+    return dummyInfo;
+  }
+
   return it->second;
 }
 

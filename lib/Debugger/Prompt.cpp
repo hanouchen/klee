@@ -19,7 +19,10 @@ void completion(const char *buf, linenoiseCompletions *lc) {
 
 extern "C" void set_halt_execution(bool);
 
-Prompt::Prompt(KDebugger *debugger) : debugger(debugger), breakLoop(false) {
+Prompt::Prompt(KDebugger *debugger) : 
+        debugger(debugger), 
+        breakLoop(false),
+        lastNonEmptyCmd() {
     linenoiseSetCompletionCallback(completion);
 };
 
@@ -35,8 +38,10 @@ int Prompt::show(const char *line) {
             std::copy(std::istream_iterator<std::string>(iss),
                     std::istream_iterator<std::string>(),
                     back_inserter(tokens));
-            
+            lastNonEmptyCmd = tokens;
             debugger->handleCommand(tokens, msg);
+        } else {
+            debugger->handleCommand(lastNonEmptyCmd, msg);
         }
         linenoiseFree(cmd); 
         if (breakLoop) {

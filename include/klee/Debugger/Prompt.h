@@ -21,6 +21,7 @@ public:
 private:
     KDebugger *debugger;
     bool breakLoop;
+    std::vector<std::string> lastNonEmptyCmd;
 };
 
 };

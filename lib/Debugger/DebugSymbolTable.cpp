@@ -9,7 +9,7 @@
 #include <klee/Internal/Module/Cell.h>
 #include <klee/Expr.h>
 #include <klee/ExecutionState.h>
-#include <klee/Internal/Module/Kmodule.h>
+#include <klee/Internal/Module/KModule.h>
 #include <klee/Internal/Module/KInstruction.h>
 
 namespace klee {

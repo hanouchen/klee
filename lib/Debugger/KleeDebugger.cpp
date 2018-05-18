@@ -167,11 +167,7 @@ void KDebugger::preprocess() {
 				return;
 			}
 
-			if (!stepi && !pc->inst->getMetadata("dbg")) {
-				return;
-			}
-
-            if (stepi || !prev || getFileFromPath(pc->info->file) != getFileFromPath(prev->info->file) || pc->info->line != prev->info->line) {
+            if (stepi || !prev || pc->info->file != prev->info->file || pc->info->line != prev->info->line) {
                 stepi = false;
                 step = false;
                 prompt.show();
@@ -198,9 +194,6 @@ void KDebugger::checkBreakpoint(ExecutionState &state) {
     std::string line = std::to_string(ki->info->line);
     std::string fileLine = getFileFromPath(state.pc->info->file) +
                            std::to_string(state.pc->info->line);
-	if (!state.pc->inst->getMetadata("dbg")) {
-		return;
-	}
     if (killTable[fileLine]) {
         std::string str;
 		state.pc->inst->dump();
@@ -291,29 +284,39 @@ void KDebugger::processBreakpoint(std::string &) {
                                                      : PType::killpoint;
 
     std::regex r("(.*\\.\\w*)\\:([0-9]+)");
-    std::regex breakpointRegex("(\\w*\\.\\w*)\\:([0-9]+)");
     std::cmatch matches;
+    std::string file = {};
+    unsigned int line = 0;
     if (std::regex_search(bpString.c_str(), matches, r)) {
-        Breakpoint nbp(type, matches.str(1), (unsigned)stoi(matches.str(2)));
-        auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [&nbp](const Breakpoint &bp) {
-            return bp.file == nbp.file && bp.line == nbp.line;
-        });
-
-        if (it == breakpoints.end()) {
-            breakpoints.push_back(nbp);
-            if (type == PType::breakpoint) {
-                breakTable[nbp.file + std::to_string(nbp.line)] = nbp.idx;
-                llvm::outs() << "Breakpoint " << nbp.idx << " at " << nbp.file << ", line " << nbp.line << "\n";
-            } else {
-                killTable[nbp.file + std::to_string(nbp.line)] = nbp.idx;
-                llvm::outs() << "Killpoint " << nbp.idx << " at " << nbp.file << ", line " << nbp.line << "\n";
-            }
-            Breakpoint::cnt++;
-        } else {
-            llvm::outs() << "Breakpoint(killpoint) already exists\n";
-        }
+        file = matches.str(1);
+        line = (unsigned)stoi(matches.str(2));
     } else {
-        llvm::outs() << "Invalid input format\n";
+        auto info = executor->kmodule->infos->getFunctionInfoByName(bpString);
+        if (info.file == "") {
+            llvm::outs() << "No function named " << bpString  << "\n";
+            return;
+        }
+        file = getFileFromPath(info.file);
+        line = info.line;
+    }
+
+    Breakpoint nbp(type, file, line);
+    auto it = std::find_if(breakpoints.begin(), breakpoints.end(), [&nbp](const Breakpoint &bp) {
+        return bp.file == nbp.file && bp.line == nbp.line;
+    });
+
+    if (it == breakpoints.end()) {
+        breakpoints.push_back(nbp);
+        if (type == PType::breakpoint) {
+            breakTable[nbp.file + std::to_string(nbp.line)] = nbp.idx;
+            llvm::outs() << "Breakpoint " << nbp.idx << " at " << nbp.file << ", line " << nbp.line << "\n";
+        } else {
+            killTable[nbp.file + std::to_string(nbp.line)] = nbp.idx;
+            llvm::outs() << "Killpoint " << nbp.idx << " at " << nbp.file << ", line " << nbp.line << "\n";
+        }
+        Breakpoint::cnt++;
+    } else {
+        llvm::outs() << "Breakpoint(killpoint) already exists\n";
     }
 }
 

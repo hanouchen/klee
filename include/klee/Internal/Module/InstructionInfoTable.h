@@ -66,6 +66,7 @@ namespace klee {
     unsigned getMaxID() const;
     const InstructionInfo &getInfo(const llvm::Instruction*) const;
     const InstructionInfo &getFunctionInfo(const llvm::Function*) const;
+    const InstructionInfo &getFunctionInfoByName(const std::string &name) const;
   };
 
 }
