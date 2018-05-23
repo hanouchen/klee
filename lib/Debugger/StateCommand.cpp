@@ -65,14 +65,14 @@ void StateMoveCommand::execute(CommandResult &res) {
             return;
         } else {
             searcher->setStateAtAddr(address);
+            auto *state = searcher->currentState();
+            std::stringstream ss;
+            ss << std::hex << state;
+            res.setMsg("Moved to state @" + ss.str() + "\n");
         }
         addressStr = "";
     }
     res.success = true;
-    auto *state = searcher->currentState();
-    std::stringstream ss;
-    ss << std::hex << state;
-    res.setMsg("Moved to state @" + ss.str() + "\n");
 }
 
 TerminateCommand::TerminateCommand(Executor *executor, DebugSearcher *searcher) :
