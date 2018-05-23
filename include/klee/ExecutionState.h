@@ -85,6 +85,9 @@ public:
   /// @brief Pointer to instruction which is currently executed
   KInstIterator prevPC;
 
+  /// @brief Last stepped instruction for this state.
+  KInstIterator lastStepped;
+
   /// @brief Stack representing the current instruction stream
   stack_ty stack;
 
@@ -99,9 +102,6 @@ public:
 
   /// @brief Constraints collected so far
   ConstraintManager constraints;
-
-  /// @brief Last breakpoint for this state.
-  Breakpoint lastBreakpoint;
 
   /// Statistics and information
 

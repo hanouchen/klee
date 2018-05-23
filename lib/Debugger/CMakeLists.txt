@@ -6,10 +6,18 @@
 # License. See LICENSE.TXT for details.
 #
 #===------------------------------------------------------------------------===#
+
 klee_add_component(kleeDebugger
   linenoise.c
-  Command.cpp
+  BreakpointCommand.cpp
+  ExecutionCommand.cpp
   DebugSymbolTable.cpp
+  DebugUtil.cpp
+  HelpCommand.cpp
+  InfoCommand.cpp
+  StateCommand.cpp
+  PrintCommand.cpp
+  SetCommand.cpp
   Prompt.cpp
   KleeDebugger.cpp
   Breakpoint.cpp

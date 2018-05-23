@@ -31,7 +31,7 @@
 using namespace llvm;
 using namespace klee;
 
-namespace { 
+namespace {
   cl::opt<bool>
   DebugLogStateMerge("debug-log-state-merge");
 }
@@ -44,7 +44,7 @@ StackFrame::StackFrame(KInstIterator _caller, KFunction *_kf)
   locals = new Cell[kf->numRegisters];
 }
 
-StackFrame::StackFrame(const StackFrame &s) 
+StackFrame::StackFrame(const StackFrame &s)
   : caller(s.caller),
     kf(s.kf),
     callPathNode(s.callPathNode),
@@ -66,6 +66,7 @@ StackFrame::~StackFrame() {
 ExecutionState::ExecutionState(KFunction *kf) :
     pc(kf->instructions),
     prevPC(pc),
+    lastStepped(),
 
     queryCost(0.), 
     weight(1),
@@ -98,6 +99,7 @@ ExecutionState::ExecutionState(const ExecutionState& state):
     fnAliases(state.fnAliases),
     pc(state.pc),
     prevPC(state.prevPC),
+    lastStepped(state.lastStepped),
     stack(state.stack),
     incomingBBIndex(state.incomingBBIndex),
 

@@ -114,6 +114,7 @@ void DebugSearcher::update(ExecutionState *current,
         if (es==*it) {
           states.erase(it);
           ok = true;
+          if (it==iter) stateChanged = true;
           break;
         }
       }
@@ -124,7 +125,6 @@ void DebugSearcher::update(ExecutionState *current,
   }
   iter = states.end() - 1;
   if (stateChanged && states.size()) llvm::outs() << "Moved to state @" << *iter << "\n";
-  // llvm::outs() << "ENd of update\n";
 }
 
 void DebugSearcher::selectNewState(int idx) {

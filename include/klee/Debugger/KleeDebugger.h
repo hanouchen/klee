@@ -9,7 +9,7 @@
 #include "klee/Internal/Module/KInstruction.h"
 #include "klee/ExecutionState.h"
 #include "klee/Debugger/Breakpoint.h"
-#include "klee/Debugger/Command.h"
+#include "klee/Debugger/DebugUtil.h"
 #include "klee/Debugger/Prompt.h"
 
 #include "llvm/IR/Module.h"
@@ -18,62 +18,43 @@ namespace klee {
 class DebugSearcher;
 class StatsTracker;
 struct KInstruction;
-class KInstIterator;
 class Executor;
+
+class DebugInfoTable;
 
 class KDebugger {
 public:
-    KDebugger();
+    ~KDebugger();
+    KDebugger(PrintStateOption opt);
 
-    void handleCommand(std::vector<std::string> &, std::string &);
+    void init();
     void preprocess();
-    void selectBranch(int, std::string &);
+    int showPrompt();
 
     void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
     void setExecutor(Executor *executor) { this->executor = executor; }
     void setModule(llvm::Module *module) { this->module = module; }
     void setSearcher(DebugSearcher * searcher) { this->searcher = searcher; }
+    void setStopUponBranching(bool val) { this->stopUponBranching = val; }
+    void setStepping() { step = true; }
+    void setSteppingInstruction() { stepi = true; }
 
 private:
     Prompt prompt;
+    DebugCommandList *commands;
     Executor *executor;
     DebugSearcher *searcher;
     StatsTracker *statsTracker;
-    std::vector<Breakpoint> breakpoints;
     llvm::Module *module;
-    std::unordered_map<std::string, int> breakTable;
-    std::unordered_map<std::string, unsigned> killTable;
+    std::vector<Breakpoint> breakpoints;
     bool step;
     bool stepi;
-    static void (KDebugger::*processors[])(std::string &);
+    bool stopUponBranching;
+    PrintStateOption printStateOpt;
 
-    void checkBreakpoint(ExecutionState &state);
-
-    void processContinue(std::string &);
-    void processRun(std::string &);
-    void processStep(std::string &);
-    void processStepInstruction(std::string &);
-    void processQuit(std::string &);
-    void processHelp(std::string &);
-    void processBreakpoint(std::string &);
-    void processDelete(std::string &);
-    void processPrint(std::string &);
-    void processPrintRegister(std::string &);
-    void processCodeListing(std::string &);
-    void processSet(std::string &);
-    void processInfo(std::string &);
-    void processState(std::string &);
-    void processTerminate(std::string &);
-    void generateConcreteInput(std::string &);
-
-    void printBreakpoints();
-    void printAllStates();
-    void printState(ExecutionState *);
-    void printStack(ExecutionState *);
-    void printCode(ExecutionState *, bool printAssembly = true);
-    void printConstraints(ExecutionState *);
-
-    const MemoryObject *getMemoryObjectBySymbol(std::string &);
+    int alertBranching(bool askForSelection);
+    int checkBreakpoint(ExecutionState &state);
+    void selectBranch(int);
 };
 }
 #endif

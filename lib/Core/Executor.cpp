@@ -2714,6 +2714,7 @@ void Executor::run(ExecutionState &initialState) {
   std::vector<ExecutionState *> newStates(states.begin(), states.end());
   searcher->update(0, newStates, std::vector<ExecutionState *>());
 
+  if (debugger) debugger->init();
   while (!states.empty()) {
     
     if (debugger) {

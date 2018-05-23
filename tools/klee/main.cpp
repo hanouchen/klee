@@ -11,6 +11,7 @@
 
 #include "klee/Config/Version.h"
 #include "klee/Debugger/KleeDebugger.h"
+#include "klee/Debugger/DebugUtil.h"
 #include "klee/ExecutionState.h"
 #include "klee/Expr.h"
 #include "klee/Internal/ADT/KTest.h"
@@ -210,6 +211,11 @@ namespace {
   cl::opt<bool>
   UseDebugger("use-debugger",
            cl::desc("Use a debugger with klee."),
+           cl::init(0));
+
+  cl::opt<bool>
+  CompactState("compact-state",
+           cl::desc("Use a compact representation when the debugger prints state information."),
            cl::init(0));
 }
 
@@ -1438,7 +1444,10 @@ int main(int argc, char **argv, char **envp) {
       }
     }
     if (UseDebugger) {
-      KDebugger *debugger = new KDebugger();
+      PrintStateOption opt = CompactState ? PrintStateOption::COMPACT
+                                          : PrintStateOption::DEFAULT;
+
+      KDebugger *debugger = new KDebugger(opt);
       debugger->setModule(mainModule);
       interpreter->setDebugger(debugger);
     }

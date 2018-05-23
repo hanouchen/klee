@@ -6245,8 +6245,8 @@ make_man_page(const group& cli,
               const doc_formatting& fmt = doc_formatting{})
 {
     man_page man;
-    man.append_section("SYNOPSIS", usage_lines(cli,progname,fmt).str());
-    man.append_section("OPTIONS", documentation(cli,fmt).str());
+    man.append_section("USAGE:", usage_lines(cli,progname,fmt).str());
+    man.append_section("OPTIONS:", documentation(cli,fmt).str());
     return man;
 }
 
