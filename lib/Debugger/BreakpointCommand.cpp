@@ -137,12 +137,11 @@ void DeleteCommand::execute(CommandResult &res) {
             for (auto num : numbers) {
                 msg += std::to_string(num) + " ";
             }
-            msg += "\nType \"info break\" to list all breakpoints.\n";
+            msg += "\nType \"info breakpoint\" to list all breakpoints.\n";
+            msg += "\nType \"info killpoint\" to list all killpoint.\n";
         }
         res.setMsg(msg);
     } else {
-        breakTable->clear();
-        killTable->clear();
         breakpoints->clear();
         res.setMsg("All breakpoints and killpoints removed.\n");
     }

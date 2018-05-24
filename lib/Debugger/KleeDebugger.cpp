@@ -123,8 +123,11 @@ void KDebugger::preprocess() {
         if (idx) {
             // Make sure this is a breakpoint, then check if
             // showPrompt() returns -1;
-            if (idx > 0 && showPrompt() == -1) {
-                break;
+            if (idx > 0) {
+                state->lastStepped = pc;
+                if (showPrompt() == -1) {
+                    break;
+                }
             }
             continue;
         }
