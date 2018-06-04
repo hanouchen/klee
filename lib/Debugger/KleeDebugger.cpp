@@ -86,11 +86,11 @@ void KDebugger::init() {
     infoCmd->addSubCommand(new InfoStateCommand(dbgSearcher));
     infoCmd->addSubCommand(new InfoStatesCommand(dbgSearcher));
     StateCommand *stateCmd = new StateCommand();
-    stateCmd->addSubCommand(new StateCycleCommand(dbgSearcher));
-    stateCmd->addSubCommand(new StateMoveCommand(dbgSearcher));
+    stateCmd->addSubCommand(new StateCycleCommand(dbgSearcher, this));
+    stateCmd->addSubCommand(new StateMoveCommand(dbgSearcher, this));
     commands->addSubCommand(infoCmd);
     commands->addSubCommand(stateCmd);
-    commands->addSubCommand(new TerminateCommand(executor, dbgSearcher));
+    commands->addSubCommand(new TerminateCommand(executor, dbgSearcher, this));
     commands->addSubCommand(new GenerateInputCommand(executor, dbgSearcher));
     commands->addSubCommand(new PrintCommand(executor, dbgSearcher));
     commands->addSubCommand(new ListCodeCommand(dbgSearcher, executor->kmodule->infos));
@@ -115,39 +115,30 @@ void KDebugger::preprocess() {
         }
     }
     ExecutionState *state = nullptr;
-    do {
-        state = dbgSearcher->currentState();
-        auto pc = state->pc;
-        auto last = state->lastStepped;
+    state = dbgSearcher->currentState();
+    auto pc = state->pc;
+    auto last = state->lastStepped;
 
-        int idx = checkBreakpoint(*state);
-        if (idx) {
-            // Make sure this is a breakpoint, then check if
-            // showPrompt() returns -1;
-            if (idx > 0) {
-                state->lastStepped = pc;
-                if (showPrompt() == -1) {
-                    break;
-                }
-            }
-            continue;
-        }
-
-        if (!stepi && !step) continue;
-        if (step && pc->info->file == "") continue;
-
-        // First instruction of the function
-        if (step && state->stack.back().kf->instructions[0] != pc && !pc->inst->getMetadata("dbg")) continue;
-
-        if (stepi || !last || pc->info->file != last->info->file || pc->info->line != last->info->line) {
+    int idx = checkBreakpoint(*state);
+    if (idx) {
+        // Make sure this is a breakpoint, then show prompt
+        if (idx > 0) {
             state->lastStepped = pc;
-            if (showPrompt() == -1) {
-                break;
-            }
+            showPrompt();
         }
-    } while (!dbgSearcher->empty()
-            && state != dbgSearcher->currentState()
-            && !executor->haltExecution);
+        return;
+    }
+
+    if (!stepi && !step) return;
+    if (step && pc->info->file == "") return;
+
+    // First instruction of the function
+    if (step && state->stack.back().kf->instructions[0] != pc && !pc->inst->getMetadata("dbg")) return;
+
+    if (stepi || !last || pc->info->file != last->info->file || pc->info->line != last->info->line) {
+        state->lastStepped = pc;
+        showPrompt();
+    }
 }
 
 int KDebugger::alertBranching(bool askForSelection) {

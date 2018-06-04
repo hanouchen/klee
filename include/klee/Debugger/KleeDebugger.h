@@ -30,6 +30,7 @@ public:
     void init();
     void preprocess();
     int showPrompt();
+    int checkBreakpoint(ExecutionState &state);
 
     void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
     void setExecutor(Executor *executor) { this->executor = executor; }
@@ -53,7 +54,6 @@ private:
     PrintStateOption printStateOpt;
 
     int alertBranching(bool askForSelection);
-    int checkBreakpoint(ExecutionState &state);
     void selectBranch(int);
 };
 }

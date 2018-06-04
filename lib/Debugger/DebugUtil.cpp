@@ -79,8 +79,9 @@ void printCode(KInstIterator ki, PrintCodeOption option, llvm::raw_ostream &os) 
 		}
     }
     if (option == PrintCodeOption::DEFAULT) {
-        os << "\nassembly:";
+        os << "\nllvm:";
         ki->inst->print(os);
+        os << "\n";
     } else {
         os << "\n";
     }

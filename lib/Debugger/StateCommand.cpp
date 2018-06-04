@@ -1,6 +1,7 @@
 #include <string>
 
 #include "llvm/Support/Format.h"
+#include "klee/Debugger/KleeDebugger.h"
 #include "klee/Debugger/DebugUtil.h"
 #include "klee/Debugger/StateCommand.h"
 #include "klee/Debugger/clipp.h"
@@ -15,8 +16,8 @@ StateCommand::StateCommand() {
         clipp::any_other(extraArgs));
 }
 
-StateCycleCommand::StateCycleCommand(DbgSearcher *searcher) :
-        forward(false), searcher(searcher) {
+StateCycleCommand::StateCycleCommand(DbgSearcher *searcher, KDebugger *debugger) :
+        forward(false), searcher(searcher), debugger(debugger) {
     command = (
         clipp::command("state"),
         clipp::one_of(
@@ -37,10 +38,18 @@ void StateCycleCommand::execute(CommandResult &res) {
     std::stringstream ss;
     ss << std::hex << state;
     res.setMsg("Moved to state @" + ss.str() + "\n");
+    while (debugger->checkBreakpoint(*state) < 0) {
+        if (searcher->empty()) {
+            res.stayInDebugger = false;
+            return;
+        }
+        state = searcher->currentState();
+    }
+    state->lastStepped = state->pc;
 }
 
-StateMoveCommand::StateMoveCommand(DbgSearcher *searcher) :
-        addressStr(), searcher(searcher) {
+StateMoveCommand::StateMoveCommand(DbgSearcher *searcher, KDebugger *debugger) :
+        addressStr(), searcher(searcher), debugger(debugger) {
     command = (
         clipp::command("state"),
         clipp::value("address").set(addressStr),
@@ -69,6 +78,14 @@ void StateMoveCommand::execute(CommandResult &res) {
             std::stringstream ss;
             ss << std::hex << state;
             res.setMsg("Moved to state @" + ss.str() + "\n");
+            while (debugger->checkBreakpoint(*state) < 0) {
+                if (searcher->empty()) {
+                    res.stayInDebugger = false;
+                    return;
+                }
+                state = searcher->currentState();
+            }
+            state->lastStepped = state->pc;
         }
         addressStr = "";
     }
@@ -94,8 +111,8 @@ void ToggleCompactCommand::execute(CommandResult &res) {
     res.stayInDebugger = true;
 }
 
-TerminateCommand::TerminateCommand(Executor *executor, DbgSearcher *searcher) :
-        terminateCurrent(true), executor(executor), searcher(searcher) {
+TerminateCommand::TerminateCommand(Executor *executor, DbgSearcher *searcher, KDebugger *debugger) :
+        terminateCurrent(true), executor(executor), searcher(searcher), debugger(debugger) {
     command = clipp::group(clipp::command("terminate", "t"));
     parser = (
         clipp::group(command),
@@ -118,6 +135,15 @@ void TerminateCommand::execute(CommandResult &res) {
         if (searcher->getStates().size() == 0) {
             res.stayInDebugger = false;
         }
+        auto *state = searcher->currentState();
+        while (debugger->checkBreakpoint(*state) < 0) {
+            if (searcher->empty()) {
+                res.stayInDebugger = false;
+                return;
+            }
+            state = searcher->currentState();
+        }
+        state->lastStepped = state->pc;
     } else {
         res.stayInDebugger = true;
         for (auto state : searcher->getStates()) {

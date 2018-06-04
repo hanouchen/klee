@@ -18,24 +18,26 @@ public:
 
 class StateCycleCommand : public DebugCommandObject {
 public:
-    StateCycleCommand(DbgSearcher *searcher);
+    StateCycleCommand(DbgSearcher *searcher, KDebugger *debugger);
     virtual std::string getName() { return "state cycle"; }
     virtual void execute(CommandResult &res);
 
 private:
     bool forward;
     DbgSearcher *searcher;
+    KDebugger *debugger;
 };
 
 class StateMoveCommand : public DebugCommandObject {
 public:
-    StateMoveCommand(DbgSearcher *searcher);
+    StateMoveCommand(DbgSearcher *searcher, KDebugger *debugger);
     virtual std::string getName() { return "state move"; }
     virtual void execute(CommandResult &res);
 
 private:
     std::string addressStr;
     DbgSearcher *searcher;
+    KDebugger *debugger;
 };
 
 class ToggleCompactCommand : public DebugCommandObject {
@@ -49,7 +51,7 @@ private:
 
 class TerminateCommand : public DebugCommandObject {
 public:
-    TerminateCommand(Executor *executor, DbgSearcher *searcher);
+    TerminateCommand(Executor *executor, DbgSearcher *searcher, KDebugger *debugger);
     virtual std::string getName() { return "terminate"; }
     virtual void execute(CommandResult &res);
 
@@ -57,6 +59,7 @@ private:
     bool terminateCurrent;
     Executor *executor;
     DbgSearcher *searcher;
+    KDebugger *debugger;
 };
 
 class GenerateInputCommand : public DebugCommandObject {
