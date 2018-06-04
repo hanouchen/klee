@@ -54,9 +54,6 @@ private:
     std::vector<unsigned> numbers;
     std::string location;
     std::vector<Breakpoint> *breakpoints;
-    std::unordered_map<std::string, int> *breakTable;
-    std::unordered_map<std::string, int> *killTable;
-
 };
 
 

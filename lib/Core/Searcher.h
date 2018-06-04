@@ -93,30 +93,38 @@ namespace klee {
       os << "DFSSearcher\n";
     }
   };
-
-  class DebugSearcher : public Searcher {
+  class DbgSearcher : public Searcher {
   public:
-    DebugSearcher() : newStateCount(0), states(), iter(), executor(0) {}
+    DbgSearcher(Searcher *s, std::set<ExecutionState *> *states);
     ExecutionState &selectState();
     void update(ExecutionState *current,
               const std::vector<ExecutionState *> &addedStates,
               const std::vector<ExecutionState *> &removedStates);
     bool empty();
-    std::vector<ExecutionState *> &getStates() { return states; }
     void printName(llvm::raw_ostream &os) {
-      os << "DebugSearcher\n";
+      os << "DbgSearcher\n";
     }
-    unsigned newStates() { return newStateCount; }
-    void selectNewState(int idx);
+
+    std::vector<ExecutionState *> &getaddedStates() { return addedStates; }
+    std::set<ExecutionState *> &getStates() { return *states; }
+    bool stateBranched() { return branched; }
+    void lockState() { lockCurrentState = true; }
+    void unlockState() { lockCurrentState = false; }
+    void setCurrentState(ExecutionState *state, bool lock = false);
     void setStateAtAddr(unsigned int addr);
-    void nextIter();
+    void nextState();
+    void updateCurrentState();
     ExecutionState *currentState();
 
-  private: 
-    unsigned newStateCount;
-    std::vector<ExecutionState *> states;
-    std::vector<ExecutionState *>::iterator iter;
-    Executor *executor;
+  private:
+    ExecutionState *curr;
+    ExecutionState *next;
+    Searcher *base;
+    std::set<ExecutionState *> *states;
+    std::vector<ExecutionState *> addedStates;
+    bool branched;
+    bool lockCurrentState;
+    bool userSelected;
   };
 
   class BFSSearcher : public Searcher {
@@ -267,7 +275,12 @@ namespace klee {
     void update(ExecutionState *current,
                 const std::vector<ExecutionState *> &addedStates,
                 const std::vector<ExecutionState *> &removedStates);
-    bool empty() { return searchers[0]->empty(); }
+    bool empty() {
+      for (auto s : searchers)
+        if (s->empty()) return true;
+        return false;
+      }
+      // return searchers[0]->empty(); }
     void printName(llvm::raw_ostream &os) {
       os << "<InterleavedSearcher> containing "
          << searchers.size() << " searchers:\n";

@@ -85,77 +85,85 @@ void DFSSearcher::update(ExecutionState *current,
   }
 }
 
-ExecutionState &DebugSearcher::selectState() { 
-  std::rotate(iter, iter + 1, states.end());
-  iter = states.end() - 1;
-  return *states.back(); 
+///
+DbgSearcher::DbgSearcher(Searcher *s, std::set<ExecutionState *> *states) :
+    curr(0), next(0), base(s), states(states), addedStates(), branched(false),
+    lockCurrentState(false), userSelected(false) {}
+
+ExecutionState &DbgSearcher::selectState() {
+  userSelected = false;
+  return *curr;
 }
 
-void DebugSearcher::update(ExecutionState *current,
+void DbgSearcher::update(ExecutionState *current,
     const std::vector<ExecutionState *> &addedStates,
     const std::vector<ExecutionState *> &removedStates) {
-  bool stateChanged = false;
-  if (current) newStateCount = addedStates.size();
-  states.insert(states.end(),
-                addedStates.begin(),
-                addedStates.end());
-  for (std::vector<ExecutionState *>::const_iterator it = removedStates.begin(),
-                                                     ie = removedStates.end();
-       it != ie; ++it) {
-    ExecutionState *es = *it;
-    if (es == states.back()) {
-      states.pop_back();
-      stateChanged = true;
-    } else {
-      bool ok = false;
+  if (current) {
+    this->addedStates.clear();
+    this->addedStates.push_back(current);
+    this->addedStates.insert(this->addedStates.end(), addedStates.begin(), addedStates.end());
+  }
+  base->update(current, addedStates, removedStates);
+  if (current && addedStates.size()) {
+    branched = true;
+    unlockState();
+  }
+}
 
-      for (std::vector<ExecutionState*>::iterator it = states.begin(),
-             ie = states.end(); it != ie; ++it) {
-        if (es==*it) {
-          states.erase(it);
-          ok = true;
-          if (it==iter) stateChanged = true;
-          break;
-        }
+void DbgSearcher::updateCurrentState() {
+  if (!base->empty()) {
+    auto it = states->find(curr);
+    if (it == states->end()) {
+      unlockState();
+    }
+    if (!lockCurrentState) {
+      next = &base->selectState();
+      if (next != curr && it == states->end()) {
+        llvm::outs() << "Moved to state @" << next << "\n";
       }
-
-      (void) ok;
-      assert(ok && "invalid state removed");
+      curr = next;
     }
   }
-  iter = states.end() - 1;
-  if (stateChanged && states.size()) llvm::outs() << "Moved to state @" << *iter << "\n";
 }
 
-void DebugSearcher::selectNewState(int idx) {
-  iter = states.end() - newStateCount + idx - 2;
-  newStateCount = 0;
-}
-
-void DebugSearcher::setStateAtAddr(unsigned int addr) {
-  auto res = std::find_if(states.begin(), states.end(), [&addr](ExecutionState *state){
+void DbgSearcher::setStateAtAddr(unsigned int addr) {
+  auto it = std::find_if(states->begin(), states->end(), [&addr](ExecutionState *state){
     return addr == ((unsigned long long)state);
   });
-  if (res == states.end()) {
+  if (it == states->end()) {
     llvm::outs() << "No state with address:" << addr << "\n";
   } else {
-    iter = res;
+    curr = *it;
   }
+  userSelected = true;
+  lockState();
 }
 
-void DebugSearcher::nextIter() {
-  ++iter;
-  iter = iter == states.end() ? states.begin() : iter;
+void DbgSearcher::nextState() {
+  auto it = states->find(curr);
+  if (it == states->end()) {
+    return;
+  }
+  it++;
+  if (it == states->end()) it = states->begin();
+  curr = *it;
+  userSelected = true;
+  lockState();
 }
 
-ExecutionState *DebugSearcher::currentState() {
-  assert(iter != states.end());
-  return *iter;
+void DbgSearcher::setCurrentState(ExecutionState *state, bool lock) {
+    curr = state;
+    addedStates.clear();
+    branched = false;
+    userSelected = true;
+    lockCurrentState = lock;
 }
 
-bool DebugSearcher::empty() { return states.empty(); }
+ExecutionState *DbgSearcher::currentState() {
+  return curr;
+}
 
-///
+bool DbgSearcher::empty() { return base->empty(); }
 
 ExecutionState &BFSSearcher::selectState() {
   return *states.front();
@@ -363,8 +371,8 @@ RandomPathSearcher::update(ExecutionState *current,
                            const std::vector<ExecutionState *> &removedStates) {
 }
 
-bool RandomPathSearcher::empty() { 
-  return executor.states.empty(); 
+bool RandomPathSearcher::empty() {
+  return executor.states.empty();
 }
 
 ///

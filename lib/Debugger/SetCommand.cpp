@@ -4,7 +4,7 @@
 
 namespace klee {
 
-SetSymbolicCommand::SetSymbolicCommand(Executor *executor, DebugSearcher *searcher) :
+SetSymbolicCommand::SetSymbolicCommand(Executor *executor, DbgSearcher *searcher) :
         var(), executor(executor), searcher(searcher) {
     command = clipp::group(clipp::command("set-symbolic"));
     parser = (
@@ -32,7 +32,6 @@ void SetSymbolicCommand::execute(CommandResult &res) {
     }
     if (svalue != nullptr && svalue->hasAddress) {
         auto state = searcher->currentState();
-        // Expr::Width type = executor->getWidthForLLVMType(svalue->type);
         auto addr = svalue->address;
         if (!isa<ConstantExpr>(addr))
             addr = state->constraints.simplifyExpr(addr);

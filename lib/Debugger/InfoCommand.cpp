@@ -57,7 +57,7 @@ void InfoBreakpointCommand::execute(CommandResult &res) {
 }
 
 
-InfoStackCommand::InfoStackCommand(DebugSearcher *searcher) :
+InfoStackCommand::InfoStackCommand(DbgSearcher *searcher) :
         searcher(searcher) {
     command = (
         clipp::command("info"),
@@ -75,7 +75,7 @@ void InfoStackCommand::execute(CommandResult &res) {
     debugutil::printStack(state);
 }
 
-InfoConstraintsCommand::InfoConstraintsCommand(DebugSearcher *searcher) :
+InfoConstraintsCommand::InfoConstraintsCommand(DbgSearcher *searcher) :
         searcher(searcher) {
     command = (
         clipp::command("info"),
@@ -92,7 +92,7 @@ void InfoConstraintsCommand::execute(CommandResult &res) {
     debugutil::printConstraints(state);
 }
 
-InfoStateCommand::InfoStateCommand(DebugSearcher *searcher) :
+InfoStateCommand::InfoStateCommand(DbgSearcher *searcher) :
         searcher(searcher) {
     command = (
         clipp::command("info"),
@@ -109,26 +109,34 @@ void InfoStateCommand::execute(CommandResult &res) {
     debugutil::printState(state);
 }
 
-InfoStatesCommand::InfoStatesCommand(DebugSearcher *searcher) :
-        searcher(searcher) {
+InfoStatesCommand::InfoStatesCommand(DbgSearcher *searcher) :
+        searcher(searcher), opt(PrintStateOption::DEFAULT) {
     command = (
         clipp::command("info"),
-        clipp::command("states"),
+        clipp::command("states")
+    );
+
+    parser = (
+        clipp::group(command),
+        clipp::option("--compact", "-c").set(opt, PrintStateOption::COMPACT).doc("Use compact state representation"),
         clipp::any_other(extraArgs)
-    ).doc("Print information of all states");
-    parser = command;
+    );
+
+    command.doc("Print information of all exeucution states");
+    command.push_back(clipp::any_other(extraArgs));
 }
 
 void InfoStatesCommand::execute(CommandResult &res) {
     res.stayInDebugger = true;
     res.success = true;
-    auto states = searcher->getStates();
+    auto statesSet = searcher->getStates();
+    std::vector<ExecutionState *> states(statesSet.begin(), statesSet.end());
     int total = states.size();
     llvm::outs().changeColor(llvm::raw_ostream::GREEN);
     llvm::outs() << "Total number of states: " << total;
     llvm::outs() << "\n";
-    PrintStateOption opt = total > 3 ? PrintStateOption::COMPACT
-                                     : PrintStateOption::DEFAULT;
+
+    if (total > 3) opt = PrintStateOption::COMPACT;
     std::string str;
     llvm::raw_string_ostream ss(str);
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
@@ -144,18 +152,18 @@ void InfoStatesCommand::execute(CommandResult &res) {
     }
 
     if (total > 15) {
-        displayLongList();
+        displayLongList(states);
     }
 
     res.setMsg("");
+    opt = PrintStateOption::DEFAULT;
 }
 
-void InfoStatesCommand::displayLongList() {
+void InfoStatesCommand::displayLongList(std::vector<ExecutionState *> &states) {
     char *cmd;
     char msg[] = "(\"p\": next page, \"q\": previous page, \"q\": quit) ";
     int pageNumber = 0;
     int itemsPerPage = 15;
-    auto states = searcher->getStates();
     int pages = (states.size() - 1) / itemsPerPage + 1;
 
     while ((cmd = linenoise(msg)) != NULL) {

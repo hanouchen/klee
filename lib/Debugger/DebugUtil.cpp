@@ -81,8 +81,9 @@ void printCode(KInstIterator ki, PrintCodeOption option, llvm::raw_ostream &os) 
     if (option == PrintCodeOption::DEFAULT) {
         os << "\nassembly:";
         ki->inst->print(os);
+    } else {
+        os << "\n";
     }
-    os << "\n";
 }
 
 void printStack(ExecutionState *state, llvm::raw_ostream &os) {

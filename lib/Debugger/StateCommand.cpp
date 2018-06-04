@@ -15,7 +15,7 @@ StateCommand::StateCommand() {
         clipp::any_other(extraArgs));
 }
 
-StateCycleCommand::StateCycleCommand(DebugSearcher *searcher) :
+StateCycleCommand::StateCycleCommand(DbgSearcher *searcher) :
         forward(false), searcher(searcher) {
     command = (
         clipp::command("state"),
@@ -32,14 +32,14 @@ void StateCycleCommand::execute(CommandResult &res) {
     res.stayInDebugger = true;
     res.success = true;
     res.msg = {};
-    if (forward) searcher->nextIter();
+    if (forward) searcher->nextState();
     auto *state = searcher->currentState();
     std::stringstream ss;
     ss << std::hex << state;
     res.setMsg("Moved to state @" + ss.str() + "\n");
 }
 
-StateMoveCommand::StateMoveCommand(DebugSearcher *searcher) :
+StateMoveCommand::StateMoveCommand(DbgSearcher *searcher) :
         addressStr(), searcher(searcher) {
     command = (
         clipp::command("state"),
@@ -75,7 +75,26 @@ void StateMoveCommand::execute(CommandResult &res) {
     res.success = true;
 }
 
-TerminateCommand::TerminateCommand(Executor *executor, DebugSearcher *searcher) :
+ToggleCompactCommand::ToggleCompactCommand(PrintStateOption *opt) :
+        opt(opt) {
+    command = (
+        clipp::command("toggle"),
+        clipp::command("compact"),
+        clipp::any_other(extraArgs)
+    ).doc("Toggle compact represetation of states");
+    parser = command;
+    *opt = PrintStateOption::DEFAULT;
+}
+
+void ToggleCompactCommand::execute(CommandResult &res) {
+    std::string rep = *opt == PrintStateOption::DEFAULT ? "compact" : "default";
+    *opt = *opt == PrintStateOption::DEFAULT ? PrintStateOption::COMPACT
+                                             : PrintStateOption::DEFAULT;
+    res.setMsg("Now using " + rep + " representation\n");
+    res.stayInDebugger = true;
+}
+
+TerminateCommand::TerminateCommand(Executor *executor, DbgSearcher *searcher) :
         terminateCurrent(true), executor(executor), searcher(searcher) {
     command = clipp::group(clipp::command("terminate", "t"));
     parser = (
@@ -93,9 +112,9 @@ void TerminateCommand::execute(CommandResult &res) {
     res.setMsg("");
     llvm::Twine msg("");
     if (terminateCurrent) {
-        // executor->terminateStateEarly(*searcher->currentState(), msg);
         executor->terminateState(*searcher->currentState());
         executor->updateStates(nullptr);
+        searcher->updateCurrentState();
         if (searcher->getStates().size() == 0) {
             res.stayInDebugger = false;
         }
@@ -107,11 +126,12 @@ void TerminateCommand::execute(CommandResult &res) {
             }
         }
         executor->updateStates(nullptr);
+        searcher->updateCurrentState();
     }
     terminateCurrent = true;
 }
 
-GenerateInputCommand::GenerateInputCommand(Executor *executor, DebugSearcher *searcher) :
+GenerateInputCommand::GenerateInputCommand(Executor *executor, DbgSearcher *searcher) :
         executor(executor), searcher(searcher) {
     command = (clipp::command("generate-input"), clipp::any_other(extraArgs));
     parser = command;

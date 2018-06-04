@@ -524,6 +524,8 @@ public:
 
   /*** State accessor methods ***/
 
+  std::set<ExecutionState *> *getStates() { return &states; }
+
   virtual unsigned getPathStreamID(const ExecutionState &state);
 
   virtual unsigned getSymbolicPathStreamID(const ExecutionState &state);

@@ -54,16 +54,15 @@ const int itemsPerPage = 4;
 extern "C" void set_interrupted(bool);
 extern "C" bool klee_interrupted();
 
-KDebugger::KDebugger(PrintStateOption opt) :
+KDebugger::KDebugger() :
     prompt(this),
     commands(0),
-    searcher(0),
     statsTracker(0),
     breakpoints(),
     step(true),
     stepi(true),
     stopUponBranching(false),
-    printStateOpt(opt) {}
+    printStateOpt(PrintStateOption::DEFAULT) {}
 
 KDebugger::~KDebugger() {
     commands->destroy();
@@ -74,40 +73,42 @@ void KDebugger::init() {
     commands = new DebugCommandList();
     commands->addSubCommand(new ContinueCommand(this));
     commands->addSubCommand(new QuitCommand(executor));
-    commands->addSubCommand(new StepCommand(this, this->searcher));
-    commands->addSubCommand(new StepInstructionCommand(this, this->searcher));
+    commands->addSubCommand(new StepCommand(this, this->dbgSearcher));
+    commands->addSubCommand(new StepInstructionCommand(this, this->dbgSearcher));
     commands->addSubCommand(new BreakpointCommand(&breakpoints, executor->kmodule->infos, executor->kmodule));
     commands->addSubCommand(new KillpointCommand(&breakpoints, executor->kmodule->infos, executor->kmodule));
     commands->addSubCommand(new DeleteCommand(&breakpoints));
     InfoCommand *infoCmd = new InfoCommand();
     infoCmd->addSubCommand(new InfoBreakpointCommand(&breakpoints));
-    infoCmd->addSubCommand(new InfoStackCommand(searcher));
-    infoCmd->addSubCommand(new InfoConstraintsCommand(searcher));
-    infoCmd->addSubCommand(new InfoStateCommand(searcher));
-    infoCmd->addSubCommand(new InfoStatesCommand(searcher));
     infoCmd->addSubCommand(new InfoStatsCommand(statsTracker));
+    infoCmd->addSubCommand(new InfoStackCommand(dbgSearcher));
+    infoCmd->addSubCommand(new InfoConstraintsCommand(dbgSearcher));
+    infoCmd->addSubCommand(new InfoStateCommand(dbgSearcher));
+    infoCmd->addSubCommand(new InfoStatesCommand(dbgSearcher));
     StateCommand *stateCmd = new StateCommand();
-    stateCmd->addSubCommand(new StateCycleCommand(searcher));
-    stateCmd->addSubCommand(new StateMoveCommand(searcher));
+    stateCmd->addSubCommand(new StateCycleCommand(dbgSearcher));
+    stateCmd->addSubCommand(new StateMoveCommand(dbgSearcher));
     commands->addSubCommand(infoCmd);
     commands->addSubCommand(stateCmd);
-    commands->addSubCommand(new TerminateCommand(executor, searcher));
-    commands->addSubCommand(new GenerateInputCommand(executor, searcher));
-    commands->addSubCommand(new PrintCommand(executor, searcher));
-    commands->addSubCommand(new ListCodeCommand(searcher, executor->kmodule->infos));
-    commands->addSubCommand(new SetSymbolicCommand(executor, searcher));
+    commands->addSubCommand(new TerminateCommand(executor, dbgSearcher));
+    commands->addSubCommand(new GenerateInputCommand(executor, dbgSearcher));
+    commands->addSubCommand(new PrintCommand(executor, dbgSearcher));
+    commands->addSubCommand(new ListCodeCommand(dbgSearcher, executor->kmodule->infos));
+    commands->addSubCommand(new SetSymbolicCommand(executor, dbgSearcher));
+    commands->addSubCommand(new ToggleCompactCommand(&printStateOpt));
     commands->addSubCommand(new HelpCommand(commands));
     prompt.setCommandList(commands);
 }
 
 void KDebugger::preprocess() {
+    dbgSearcher->updateCurrentState();
     if (klee_interrupted()) {
         if (showPrompt() == -1) {
             return;
         }
     }
 
-    if (searcher->newStates()) {
+    if (dbgSearcher->stateBranched()) {
         if (alertBranching(step || stepi || stopUponBranching) == -1) {
             executor->setHaltExecution(true);
             return;
@@ -115,9 +116,9 @@ void KDebugger::preprocess() {
     }
     ExecutionState *state = nullptr;
     do {
-        state = searcher->currentState();
-        auto pc = searcher->currentState()->pc;
-        auto last = searcher->currentState()->lastStepped;
+        state = dbgSearcher->currentState();
+        auto pc = state->pc;
+        auto last = state->lastStepped;
 
         int idx = checkBreakpoint(*state);
         if (idx) {
@@ -144,29 +145,28 @@ void KDebugger::preprocess() {
                 break;
             }
         }
-    } while (!searcher->getStates().empty()
-            && state != searcher->currentState()
+    } while (!dbgSearcher->empty()
+            && state != dbgSearcher->currentState()
             && !executor->haltExecution);
 }
 
 int KDebugger::alertBranching(bool askForSelection) {
-    unsigned int newStates = searcher->newStates();
-    auto states = searcher->getStates();
+    auto &addedStates = dbgSearcher->getaddedStates();
     llvm::outs().changeColor(llvm::raw_ostream::GREEN);
     llvm::outs() << "Execution branched from:\n";
-    debugutil::printCode(searcher->currentState()->prevPC, PrintCodeOption::SOURCE_ONLY);
+    debugutil::printCode(dbgSearcher->currentState()->prevPC, PrintCodeOption::SOURCE_ONLY);
     llvm::outs() << "\n";
     unsigned int cnt = 0;
-    for (auto it = states.end() - newStates - 1; it != states.end(); ++it) {
+    for (auto state : addedStates) {
         if (askForSelection) {
             llvm::outs().changeColor(llvm::raw_ostream::CYAN);
             llvm::outs() << "Enter " << ++cnt << " to continue from ";
         }
-        debugutil::printState(*it, printStateOpt);
+        debugutil::printState(state, printStateOpt);
         llvm::outs() << "\n";
     }
     if (askForSelection) {
-        int res = prompt.askForSelection(MSG_SELECT_STATE, 1, newStates + 1);
+        int res = prompt.askForSelection(MSG_SELECT_STATE, 1, addedStates.size());
         if (res == -1) {
             return -1;
         }
@@ -174,7 +174,10 @@ int KDebugger::alertBranching(bool askForSelection) {
         step = stepi = true;
     } else {
         llvm::outs().changeColor(llvm::raw_ostream::CYAN);
-        llvm::outs() << "Continuing execution from state @" << *(states.end() - 1) << "\n";
+        dbgSearcher->unlockState();
+        auto state = &dbgSearcher->selectState();
+        dbgSearcher->setCurrentState(state);
+        llvm::outs() << "Continuing execution from state @" << dbgSearcher->currentState() << "\n";
         llvm::outs().changeColor(llvm::raw_ostream::WHITE);
         executor->setHaltExecution(false);
     }
@@ -217,7 +220,7 @@ int KDebugger::checkBreakpoint(ExecutionState &state) {
     }
     if (idx > 0) {
         llvm::outs() << "\nBreakpoint " << idx << ", at "  << info->file << ":" << info->line << "\n";
-        debugutil::printCode(searcher->currentState()->pc);
+        debugutil::printCode(state.pc, PrintCodeOption::SOURCE_ONLY);
         return idx;
 
     }
@@ -225,8 +228,12 @@ int KDebugger::checkBreakpoint(ExecutionState &state) {
 }
 
 void KDebugger::selectBranch(int idx) {
-    searcher->selectNewState(idx);
-    auto state = searcher->currentState();
+    dbgSearcher->lockState();
+    dbgSearcher->setCurrentState(
+        dbgSearcher->getaddedStates().at(idx - 1),
+        /* lock state = */ true
+    );
+    auto state = dbgSearcher->currentState();
     llvm::outs() << "You selected state @" << state << ".\n";
     stopUponBranching = false;
     prompt.breakFromLoop();

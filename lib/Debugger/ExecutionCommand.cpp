@@ -56,7 +56,7 @@ void QuitCommand::execute(CommandResult &res) {
     res.setMsg("Quitting klee and the debugger\n");
 }
 
-StepCommand::StepCommand(KDebugger *debugger, DebugSearcher *searcher) :
+StepCommand::StepCommand(KDebugger *debugger, DbgSearcher *searcher) :
     debugger(debugger),
     searcher(searcher) {
 
@@ -79,7 +79,7 @@ void StepCommand::execute(CommandResult &res) {
 }
 
 
-StepInstructionCommand::StepInstructionCommand(KDebugger *debugger, DebugSearcher *searcher) :
+StepInstructionCommand::StepInstructionCommand(KDebugger *debugger, DbgSearcher *searcher) :
     debugger(debugger),
     searcher(searcher) {
 

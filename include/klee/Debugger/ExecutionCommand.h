@@ -37,26 +37,26 @@ private:
 class StepCommand : public DebugCommandObject {
 
 public:
-    StepCommand(KDebugger *debugger, DebugSearcher *searcher);
+    StepCommand(KDebugger *debugger, DbgSearcher *searcher);
     std::string getName() { return "step"; }
     virtual void execute(CommandResult &res);
 
 private:
     KDebugger *debugger;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 
 class StepInstructionCommand : public DebugCommandObject {
 
 public:
-    StepInstructionCommand(KDebugger *debugger, DebugSearcher *searcher);
+    StepInstructionCommand(KDebugger *debugger, DbgSearcher *searcher);
     std::string getName() { return "step"; }
     virtual void execute(CommandResult &res);
 
 private:
     KDebugger *debugger;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 };

@@ -11,14 +11,14 @@ namespace klee {
 
 class PrintCommand : public DebugCommandObject {
 public:
-    PrintCommand(Executor *executor, DebugSearcher *searcher);
+    PrintCommand(Executor *executor, DbgSearcher *searcher);
     virtual std::string getName() { return "print"; }
     virtual void execute(CommandResult &res);
 
 private:
     std::string var;
     Executor *executor;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 class PrintRegisterCommand : public DebugCommandObject {
@@ -34,14 +34,14 @@ private:
 
 class ListCodeCommand : public DebugCommandObject {
 public:
-    ListCodeCommand(DebugSearcher *searcher, InstructionInfoTable *infos);
+    ListCodeCommand(DbgSearcher *searcher, InstructionInfoTable *infos);
     virtual std::string getName() { return "list"; }
     virtual void parse(std::vector<std::string> &tokens, ParsingResult &res);
     virtual void execute(CommandResult &res);
 
 private:
     std::string location;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
     InstructionInfoTable *infos;
 };
 

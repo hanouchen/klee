@@ -98,12 +98,6 @@ Searcher *getNewSearcher(Searcher::CoreSearchType type, Executor &executor) {
 }
 
 Searcher *klee::constructUserSearcher(Executor &executor) {
-  if (executor.getDebugger()) {
-    DebugSearcher *debugSearcher = new DebugSearcher();
-    executor.getDebugger()->setExecutor(&executor);
-    executor.getDebugger()->setSearcher(debugSearcher);
-    return debugSearcher;
-  }
 
   Searcher *searcher = getNewSearcher(CoreSearch[0], executor);
   
@@ -129,6 +123,12 @@ Searcher *klee::constructUserSearcher(Executor &executor) {
 
   if (UseIterativeDeepeningTimeSearch) {
     searcher = new IterativeDeepeningTimeSearcher(searcher);
+  }
+  if (executor.getDebugger()) {
+    DbgSearcher *dbgSearcher = new DbgSearcher(searcher, executor.getStates());
+    executor.getDebugger()->setExecutor(&executor);
+    executor.getDebugger()->setDbgSearcher(dbgSearcher);
+    return dbgSearcher;
   }
 
   llvm::raw_ostream &os = executor.getHandler().getInfoStream();

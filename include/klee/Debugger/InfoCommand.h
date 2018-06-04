@@ -7,7 +7,7 @@
 
 namespace klee {
 
-class DebugSearcher;
+class DbgSearcher;
 class StatsTracker;
 
 class InfoCommand : public DebugCommandList {
@@ -29,39 +29,40 @@ private:
 
 class InfoStackCommand : public DebugCommandObject {
 public:
-    InfoStackCommand(DebugSearcher *searcher);
+    InfoStackCommand(DbgSearcher *searcher);
     virtual std::string getName() { return "info stack"; }
     virtual void execute(CommandResult &res);
 private:
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 class InfoConstraintsCommand : public DebugCommandObject {
 public:
-    InfoConstraintsCommand(DebugSearcher *searcher);
+    InfoConstraintsCommand(DbgSearcher *searcher);
     virtual std::string getName() { return "info constraints"; }
     virtual void execute(CommandResult &res);
 private:
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 class InfoStateCommand : public DebugCommandObject {
 public:
-    InfoStateCommand(DebugSearcher *searcher);
+    InfoStateCommand(DbgSearcher *searcher);
     virtual std::string getName() { return "info state"; }
     virtual void execute(CommandResult &res);
 private:
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 class InfoStatesCommand : public DebugCommandObject {
 public:
-    InfoStatesCommand(DebugSearcher *searcher);
+    InfoStatesCommand(DbgSearcher *searcher);
     virtual std::string getName() { return "info states"; }
     virtual void execute(CommandResult &res);
 private:
-    virtual void displayLongList();
-    DebugSearcher *searcher;
+    virtual void displayLongList(std::vector<ExecutionState *> &states);
+    DbgSearcher *searcher;
+    PrintStateOption opt;
 };
 
 class InfoStatsCommand : public DebugCommandObject {

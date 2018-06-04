@@ -17,7 +17,7 @@
 
 namespace klee {
 
-PrintCommand::PrintCommand(Executor *executor, DebugSearcher *searcher) :
+PrintCommand::PrintCommand(Executor *executor, DbgSearcher *searcher) :
         executor(executor), searcher(searcher) {
     command = clipp::group(clipp::command("print", "p"));
     parser = (
@@ -78,7 +78,6 @@ void PrintCommand::execute(CommandResult &res) {
         if (regIdx != -1) {
             llvm::outs() << sf.locals[regIdx].value << "\n";
         } else if (value) {
-			llvm::outs() << "Use value\n";
             value->dump();
         } else {
             llvm::outs() << "Unable to print variable information\n";
@@ -87,7 +86,7 @@ void PrintCommand::execute(CommandResult &res) {
 
 }
 
-ListCodeCommand::ListCodeCommand(DebugSearcher *searcher, InstructionInfoTable *infos) :
+ListCodeCommand::ListCodeCommand(DbgSearcher *searcher, InstructionInfoTable *infos) :
         location(), searcher(searcher), infos(infos) {
     command = clipp::group(clipp::command("list"));
     parser = (

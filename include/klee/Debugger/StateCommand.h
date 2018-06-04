@@ -18,47 +18,56 @@ public:
 
 class StateCycleCommand : public DebugCommandObject {
 public:
-    StateCycleCommand(DebugSearcher *searcher);
+    StateCycleCommand(DbgSearcher *searcher);
     virtual std::string getName() { return "state cycle"; }
     virtual void execute(CommandResult &res);
 
 private:
     bool forward;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 class StateMoveCommand : public DebugCommandObject {
 public:
-    StateMoveCommand(DebugSearcher *searcher);
+    StateMoveCommand(DbgSearcher *searcher);
     virtual std::string getName() { return "state move"; }
     virtual void execute(CommandResult &res);
 
 private:
     std::string addressStr;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
+};
+
+class ToggleCompactCommand : public DebugCommandObject {
+public:
+    ToggleCompactCommand(PrintStateOption *opt);
+    virtual std::string getName() { return "toggle compact"; }
+    virtual void execute(CommandResult &res);
+private:
+    PrintStateOption *opt;
 };
 
 class TerminateCommand : public DebugCommandObject {
 public:
-    TerminateCommand(Executor *executor, DebugSearcher *searcher);
+    TerminateCommand(Executor *executor, DbgSearcher *searcher);
     virtual std::string getName() { return "terminate"; }
     virtual void execute(CommandResult &res);
 
 private:
     bool terminateCurrent;
     Executor *executor;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 class GenerateInputCommand : public DebugCommandObject {
 public:
-    GenerateInputCommand(Executor *executor, DebugSearcher *searcher);
+    GenerateInputCommand(Executor *executor, DbgSearcher *searcher);
     virtual std::string getName() { return "generate-input"; }
     virtual void execute(CommandResult &res);
 
 private:
     Executor *executor;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 

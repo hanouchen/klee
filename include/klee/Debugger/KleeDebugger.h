@@ -25,7 +25,7 @@ class DebugInfoTable;
 class KDebugger {
 public:
     ~KDebugger();
-    KDebugger(PrintStateOption opt);
+    KDebugger();
 
     void init();
     void preprocess();
@@ -34,7 +34,7 @@ public:
     void setStatsTracker(StatsTracker *tracker) { this->statsTracker = tracker; }
     void setExecutor(Executor *executor) { this->executor = executor; }
     void setModule(llvm::Module *module) { this->module = module; }
-    void setSearcher(DebugSearcher * searcher) { this->searcher = searcher; }
+    void setDbgSearcher(DbgSearcher *searcher) { this->dbgSearcher = searcher; }
     void setStopUponBranching(bool val) { this->stopUponBranching = val; }
     void setStepping() { step = true; }
     void setSteppingInstruction() { stepi = true; }
@@ -43,7 +43,7 @@ private:
     Prompt prompt;
     DebugCommandList *commands;
     Executor *executor;
-    DebugSearcher *searcher;
+    DbgSearcher *dbgSearcher;
     StatsTracker *statsTracker;
     llvm::Module *module;
     std::vector<Breakpoint> breakpoints;

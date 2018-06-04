@@ -11,14 +11,14 @@ namespace klee {
 
 class SetSymbolicCommand : public DebugCommandObject {
 public:
-    SetSymbolicCommand(Executor *executor, DebugSearcher *searcher);
+    SetSymbolicCommand(Executor *executor, DbgSearcher *searcher);
     virtual std::string getName() { return "set-symbolic"; }
     virtual void execute(CommandResult &res);
 
 private:
     std::string var;
     Executor *executor;
-    DebugSearcher *searcher;
+    DbgSearcher *searcher;
 };
 
 };

@@ -17,7 +17,6 @@ namespace klee {
 DebugSymbolTable::~DebugSymbolTable() {
     destroy();
 }
-
 bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, StackFrame &sf, llvm::Value *scope) {
     if (!this->scope) {
         this->scope = scope;
@@ -42,7 +41,7 @@ bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, St
 
     auto it = table.find(symbol);
     if (it != table.end() && it->second.hasAddress) {
-        llvm::outs() << "Symbol " << symbol << " already bound to an address.\n";
+        // llvm::outs() << "Symbol " << symbol << " already bound to an address.\n";
         return false;
     }
 
@@ -68,26 +67,76 @@ bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, St
     return false;
 }
 
+// bool DebugSymbolTable::bindAddress(std::string &symbol, llvm::Value *address, StackFrame &sf, llvm::Value *scope) {
+//     if (!this->scope) {
+//         this->scope = scope;
+//     } else if (this->scope != scope) {
+//         if (!child) {
+//             child = new DebugSymbolTable();
+//             child->scope = scope;
+//             // llvm::outs() << "Opening new scope\n";
+//         } else {
+//             llvm::MDNode *md = dyn_cast<llvm::MDNode>(scope);
+//             if (md) {
+//                 if (md->getOperand(2) == this->scope) {
+//                     child->destroy();
+//                     child = new DebugSymbolTable();
+//                     child->scope = scope;
+//                     // llvm::outs() << "Destory old scope for new one\n";
+//                 }
+//             }
+//         }
+//         return child->bindAddress(symbol, address, sf, scope);
+//     }
+
+//     auto it = table.find(symbol);
+//     if (it != table.end() && it->second.hasAddress) {
+//         // llvm::outs() << "Symbol " << symbol << " already bound to an address.\n";
+//         return false;
+//     }
+
+//     SymbolValue value;
+//     SymbolValue &sv = (it != table.end()) ? it->second : value;
+//     if (llvm::AllocaInst *alloca = dyn_cast<llvm::AllocaInst>(address)) {
+//         sv.hasAddress = true;
+//         sv.type = alloca->getAllocatedType();
+//         auto kf = sf.kf;
+//         for (unsigned j = 0; j < kf->numInstructions; ++j) {
+//             auto inst = kf->instructions[j]->inst;
+//             if (alloca == inst) {
+//                 int vnumber = kf->instructions[j]->dest;
+//                 if (vnumber < 0) {
+//                     return false;
+//                 }
+//                 sv.address = sf.locals[vnumber].value;
+//                 table[symbol] = sv;
+//                 return true;
+//             }
+//         }
+//     }
+//     return false;
+// }
+
 void DebugSymbolTable::updateValue(std::string &symbol, llvm::Value *value, llvm::Value *scope) {
-    // if (!this->scope) {
-    //     this->scope = scope;
-    // } else if (this->scope != scope) {
-    //     if (!child) {
-    //         child = new DebugSymbolTable();
-    //         child->scope = scope;
-    //     } else {
-    //         llvm::MDNode *md = dyn_cast<llvm::MDNode>(scope);
-    //         if (md) {
-    //             if (md->getOperand(2) == this->scope) {
-    //                 child->destroy();
-    //                 child = new DebugSymbolTable();
-    //                 child->scope = scope;
-    //                 llvm::outs() << "Destory old scope for new one\n";
-    //             }
-    //         }
-    //     }
-    //     child->updateValue(symbol, value, scope);
-    // }
+    if (!this->scope) {
+        this->scope = scope;
+    } else if (this->scope != scope) {
+        if (!child) {
+            child = new DebugSymbolTable();
+            child->scope = scope;
+        } else {
+            llvm::MDNode *md = dyn_cast<llvm::MDNode>(scope);
+            if (md) {
+                if (md->getOperand(2) == this->scope) {
+                    child->destroy();
+                    child = new DebugSymbolTable();
+                    child->scope = scope;
+                    // llvm::outs() << "Destory old scope for new one\n";
+                }
+            }
+        }
+        child->updateValue(symbol, value, scope);
+    }
     auto it = table.find(symbol);
     SymbolValue symbolValue;
     SymbolValue &sv = (it != table.end()) ? it->second : symbolValue;

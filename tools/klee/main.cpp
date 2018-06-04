@@ -212,11 +212,6 @@ namespace {
   UseDebugger("use-debugger",
            cl::desc("Use a debugger with klee."),
            cl::init(0));
-
-  cl::opt<bool>
-  CompactState("compact-state",
-           cl::desc("Use a compact representation when the debugger prints state information."),
-           cl::init(0));
 }
 
 extern cl::opt<double> MaxTime;
@@ -1444,10 +1439,7 @@ int main(int argc, char **argv, char **envp) {
       }
     }
     if (UseDebugger) {
-      PrintStateOption opt = CompactState ? PrintStateOption::COMPACT
-                                          : PrintStateOption::DEFAULT;
-
-      KDebugger *debugger = new KDebugger(opt);
+      KDebugger *debugger = new KDebugger();
       debugger->setModule(mainModule);
       interpreter->setDebugger(debugger);
     }
