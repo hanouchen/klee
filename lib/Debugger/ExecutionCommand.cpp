@@ -97,6 +97,7 @@ void StepInstructionCommand::execute(CommandResult &res) {
     debugger->setSteppingInstruction();
     auto state = searcher->currentState();
     debugutil::printCode(state->pc);
+    llvm::outs() << "\n";
     res.success = true;
     res.stayInDebugger = false;
 }

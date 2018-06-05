@@ -2732,6 +2732,7 @@ void Executor::run(ExecutionState &initialState) {
 
 
     executeInstruction(state, ki);
+    if (haltExecution) break;
     processTimers(&state, MaxInstructionTime);
 
     checkMemoryUsage();
@@ -2959,6 +2960,13 @@ void Executor::terminateStateOnError(ExecutionState &state,
     }
 
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
+    if (debugger) {
+      debugger->onError();
+      if (states.find(&state) != states.end()) {
+        terminateState(state);
+      }
+      return;
+    }
   }
     
   terminateState(state);

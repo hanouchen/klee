@@ -62,6 +62,7 @@ KDebugger::KDebugger() :
     step(true),
     stepi(true),
     stopUponBranching(false),
+    stopOnError(false),
     printStateOpt(PrintStateOption::DEFAULT) {}
 
 KDebugger::~KDebugger() {
@@ -96,6 +97,7 @@ void KDebugger::init() {
     commands->addSubCommand(new ListCodeCommand(dbgSearcher, executor->kmodule->infos));
     commands->addSubCommand(new SetSymbolicCommand(executor, dbgSearcher));
     commands->addSubCommand(new ToggleCompactCommand(&printStateOpt));
+    commands->addSubCommand(new ToggleStopOnErrorCommand(&stopOnError));
     commands->addSubCommand(new HelpCommand(commands));
     prompt.setCommandList(commands);
 }
@@ -141,6 +143,14 @@ void KDebugger::preprocess() {
     }
 }
 
+void KDebugger::onError() {
+    if (stopOnError) {
+        auto state = dbgSearcher->currentState();
+        state->lastStepped = state->pc;
+        showPrompt();
+    }
+}
+
 int KDebugger::alertBranching(bool askForSelection) {
     auto &addedStates = dbgSearcher->getaddedStates();
     llvm::outs().changeColor(llvm::raw_ostream::GREEN);
@@ -150,8 +160,19 @@ int KDebugger::alertBranching(bool askForSelection) {
     unsigned int cnt = 0;
     for (auto state : addedStates) {
         if (askForSelection) {
-            llvm::outs().changeColor(llvm::raw_ostream::CYAN);
-            llvm::outs() << "Enter " << ++cnt << " to continue from ";
+            if (printStateOpt == PrintStateOption::DEFAULT) {
+                for (int i = 0; i < 15; ++i) llvm::outs() << "-";
+                llvm::outs() << "  ";
+            }
+            llvm::outs() << "Enter " << ++cnt << " to select the following state ";
+            for (int i = 0; i < 15; ++i) llvm::outs() << "-"; llvm::outs() << "\n";
+        } else {
+            if (printStateOpt == PrintStateOption::DEFAULT) {
+                for (int i = 0; i < 25; ++i) llvm::outs() << "-";
+                llvm::outs() << "  ";
+            }
+            llvm::outs() << "Branch " << ++cnt << "  ";
+            for (int i = 0; i < 25; ++i) llvm::outs() << "-"; llvm::outs() << "\n";
         }
         debugutil::printState(state, printStateOpt);
         llvm::outs() << "\n";

@@ -29,6 +29,7 @@ public:
 
     void init();
     void preprocess();
+    void onError();
     int showPrompt();
     int checkBreakpoint(ExecutionState &state);
 
@@ -51,6 +52,7 @@ private:
     bool step;
     bool stepi;
     bool stopUponBranching;
+    bool stopOnError;
     PrintStateOption printStateOpt;
 
     int alertBranching(bool askForSelection);

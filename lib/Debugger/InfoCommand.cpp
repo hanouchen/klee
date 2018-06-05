@@ -6,6 +6,8 @@
 #include "klee/Debugger/clipp.h"
 #include "klee/Debugger/DebugUtil.h"
 #include "klee/Debugger/InfoCommand.h"
+#include "klee/ExecutionState.h"
+#include "klee/Internal/Module/KInstruction.h"
 #include "../lib/Core/Searcher.h"
 #include "../Core/StatsTracker.h"
 #include "klee/Debugger/linenoise.h"
@@ -129,7 +131,7 @@ InfoStatesCommand::InfoStatesCommand(DbgSearcher *searcher) :
 void InfoStatesCommand::execute(CommandResult &res) {
     res.stayInDebugger = true;
     res.success = true;
-    auto statesSet = searcher->getStates();
+    auto &statesSet = searcher->getStates();
     std::vector<ExecutionState *> states(statesSet.begin(), statesSet.end());
     int total = states.size();
     llvm::outs().changeColor(llvm::raw_ostream::GREEN);
@@ -137,19 +139,38 @@ void InfoStatesCommand::execute(CommandResult &res) {
     llvm::outs() << "\n";
 
     if (total > 3) opt = PrintStateOption::COMPACT;
-    std::string str;
-    llvm::raw_string_ostream ss(str);
+    const unsigned sourceCol = 12;
+    const unsigned endCol = 75;
+    llvm::formatted_raw_ostream fo(llvm::outs());
+
     llvm::outs().changeColor(llvm::raw_ostream::WHITE);
-    llvm::outs() << "Page 1:" << "\n\n";
-    for (int i = 0; i < std::min(total, 15); ++i) {
-        if (states[i] == searcher->currentState()) {
-            llvm::outs().changeColor(llvm::raw_ostream::GREEN);
-            llvm::outs() << "current state --> ";
-            llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+    llvm::outs() << "Page 1 (current state denoted by *):" << "\n\n";
+    if (opt == PrintStateOption::COMPACT) {
+        fo << "Address"; fo.PadToColumn(sourceCol); fo << "|  Source"; fo.PadToColumn(endCol); fo << "|\n";
+        for (unsigned i = 0; i <= endCol; ++i) fo << "-"; fo << "\n";
+        for (int i = 0; i < std::min(total, 15); ++i) {
+            fo << states[i];
+            if (states[i] == searcher->currentState()) {
+                fo << " *";
+            }
+            fo.PadToColumn(sourceCol); fo << "|";
+            auto str = debugutil::getSourceLine(states[i]->pc->info->file,
+                                                states[i]->pc->info->line);
+            if (str.size() > endCol - sourceCol - 4)
+                str.resize(endCol - sourceCol - 4);
+
+            fo << "  " << str; fo.PadToColumn(endCol); fo << "|\n";
         }
-        debugutil::printState(states[i], opt);
-        llvm::outs() << "\n";
+    } else {
+        for (int i = 0; i < std::min(total, 15); ++i) {
+            // print address
+            fo << "\n"; for (int i = 0; i < 25; ++i) fo << "-";
+            fo << " "; fo << (states[i] == searcher->currentState() ? "*" : " ");
+            fo << "State " << (i + 1) << "  "; for (int i = 0; i < 25; ++i) fo << "-"; fo << "\n";
+            debugutil::printState(states[i]);
+        }
     }
+    fo.flush();
 
     if (total > 15) {
         displayLongList(states);
@@ -185,20 +206,32 @@ void InfoStatesCommand::displayLongList(std::vector<ExecutionState *> &states) {
             continue;
         }
 
-        llvm::outs() << "Page " << (1 + pageNumber) << "\n\n";
+        llvm::outs() << "\nPage " << (1 + pageNumber) << " (current state denoted by *): " << "\n\n";
+        const unsigned sourceCol = 12;
+        const unsigned endCol = 75;
+        llvm::formatted_raw_ostream fo(llvm::outs());
+
+        llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+        fo << "Address"; fo.PadToColumn(sourceCol); fo << "|  Source"; fo.PadToColumn(endCol); fo << "|\n";
+        for (unsigned i = 0; i <= endCol; ++i) fo << "-"; fo << "\n";
         for (int i = 0; i < itemsPerPage; ++i) {
             if (i + pageNumber * itemsPerPage >= (int)states.size()) {
                 break;
             }
-            auto state = states[itemsPerPage * pageNumber + i];
-            if (state == searcher->currentState()) {
-                llvm::outs().changeColor(llvm::raw_ostream::GREEN);
-                llvm::outs() << "current state --> ";
-                llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+            int j = i + pageNumber * itemsPerPage;
+            fo << states[j];
+            if (states[j] == searcher->currentState()) {
+                fo << " *";
             }
-            debugutil::printState(state, PrintStateOption::COMPACT);
-            llvm::outs() << "\n";
+            fo.PadToColumn(sourceCol); fo << "|";
+            auto str = debugutil::getSourceLine(states[j]->pc->info->file,
+                                                states[j]->pc->info->line);
+            if (str.size() > endCol - sourceCol - 4)
+                str.resize(endCol - sourceCol - 4);
+
+            fo << "  " << str; fo.PadToColumn(endCol); fo << "|\n";
         }
+        fo.flush();
         linenoiseFree(cmd);
     }
 

@@ -44,18 +44,30 @@ std::string getFileFromPath(const std::string &fullPath) {
 
 void printState(ExecutionState *state, PrintStateOption option, llvm::raw_ostream &os) {
     assert(state);
-    os.changeColor(llvm::raw_ostream::CYAN);
-    os << "state @" << state << ", ";
-    if (option == PrintStateOption::COMPACT) {
-        os << "\n";
-    }
-    if (option == PrintStateOption::DEFAULT)
-        printConstraints(state, os);
+
+    llvm::formatted_raw_ostream fo(os);
+    fo << "Address: "; fo.PadToColumn(12); fo << "  ";
+    fo << state;
+    fo << "\n";
+
+    // print location
     if (option == PrintStateOption::DEFAULT) {
-        printCode(state->pc);
-        os << "\n";
-    } else {
-        printCode(state->pc, PrintCodeOption::SOURCE_ONLY, os);
+        fo << "Location: "; fo.PadToColumn(12); fo << "  ";
+        fo << state->pc->info->file << ":" << state->pc->info->line;
+        fo << "\n";
+    }
+
+    // print code
+    fo << "Source: "; fo.PadToColumn(12); fo << "  ";
+    auto str = debugutil::getSourceLine(state->pc->info->file,
+                                        state->pc->info->line);
+    fo << str << "\n";
+
+    if (option == PrintStateOption::DEFAULT) {
+        fo << "LLVM: "; fo.PadToColumn(12);
+        state->pc->inst->print(fo);
+        fo << "\n";
+        debugutil::printConstraints(state);
     }
 }
 
@@ -81,7 +93,6 @@ void printCode(KInstIterator ki, PrintCodeOption option, llvm::raw_ostream &os) 
     if (option == PrintCodeOption::DEFAULT) {
         os << "\nllvm:";
         ki->inst->print(os);
-        os << "\n";
     } else {
         os << "\n";
     }

@@ -93,9 +93,10 @@ void StateMoveCommand::execute(CommandResult &res) {
 }
 
 ToggleCompactCommand::ToggleCompactCommand(PrintStateOption *opt) :
-        opt(opt) {
+        opt(opt), value(false) {
     command = (
-        clipp::command("toggle"),
+        one_of(clipp::command("set").set(value, true),
+               clipp::command("unset").set(value, false)),
         clipp::command("compact"),
         clipp::any_other(extraArgs)
     ).doc("Toggle compact represetation of states");
@@ -104,10 +105,28 @@ ToggleCompactCommand::ToggleCompactCommand(PrintStateOption *opt) :
 }
 
 void ToggleCompactCommand::execute(CommandResult &res) {
-    std::string rep = *opt == PrintStateOption::DEFAULT ? "compact" : "default";
-    *opt = *opt == PrintStateOption::DEFAULT ? PrintStateOption::COMPACT
-                                             : PrintStateOption::DEFAULT;
+    *opt = value ? PrintStateOption::COMPACT : PrintStateOption::DEFAULT;
+    std::string rep = *opt == PrintStateOption::DEFAULT ? "default" : "compact";
     res.setMsg("Now using " + rep + " representation\n");
+    res.stayInDebugger = true;
+}
+
+ToggleStopOnErrorCommand::ToggleStopOnErrorCommand(bool *stop) :
+        stop(stop), value(false) {
+    command = (
+        one_of(clipp::command("set").set(value, true),
+               clipp::command("unset").set(value, false)),
+        clipp::command("stop-on-error"),
+        clipp::any_other(extraArgs)
+    ).doc("Toggle stop on error");
+    parser = command;
+    *stop = false;
+}
+
+void ToggleStopOnErrorCommand::execute(CommandResult &res) {
+    *stop = value;
+    std::string s = *stop? "true" : "false";
+    res.setMsg("Stop on error: " + s + "\n");
     res.stayInDebugger = true;
 }
 

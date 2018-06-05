@@ -47,6 +47,17 @@ public:
     virtual void execute(CommandResult &res);
 private:
     PrintStateOption *opt;
+    bool value;
+};
+
+class ToggleStopOnErrorCommand : public DebugCommandObject {
+public:
+    ToggleStopOnErrorCommand(bool *stop);
+    virtual std::string getName() { return "toggle stop-on-error"; }
+    virtual void execute(CommandResult &res);
+private:
+    bool *stop;
+    bool value;
 };
 
 class TerminateCommand : public DebugCommandObject {
