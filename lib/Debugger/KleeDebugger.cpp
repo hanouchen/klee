@@ -110,6 +110,9 @@ void KDebugger::preprocess() {
         }
     }
 
+    // Use quit in the prompt at error
+    if (executor->haltExecution) return;
+
     if (dbgSearcher->stateBranched()) {
         if (alertBranching(step || stepi || stopUponBranching) == -1) {
             executor->setHaltExecution(true);
@@ -210,6 +213,9 @@ int KDebugger::showPrompt() {
         executor->setHaltExecution(true);
     }
     if (executor->haltExecution) {
+        step = stepi = false;
+        stopUponBranching = false;
+        breakpoints.clear();
         return -1;
     }
     return res;

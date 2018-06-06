@@ -2732,7 +2732,6 @@ void Executor::run(ExecutionState &initialState) {
 
 
     executeInstruction(state, ki);
-    if (haltExecution) break;
     processTimers(&state, MaxInstructionTime);
 
     checkMemoryUsage();
