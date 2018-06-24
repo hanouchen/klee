@@ -101,7 +101,7 @@ ToggleCompactCommand::ToggleCompactCommand(PrintStateOption *opt) :
         clipp::any_other(extraArgs)
     ).doc("Toggle compact represetation of states");
     parser = command;
-    *opt = PrintStateOption::DEFAULT;
+    *opt = PrintStateOption::COMPACT;
 }
 
 void ToggleCompactCommand::execute(CommandResult &res) {
@@ -178,7 +178,7 @@ void TerminateCommand::execute(CommandResult &res) {
 
 GenerateInputCommand::GenerateInputCommand(Executor *executor, DbgSearcher *searcher) :
         executor(executor), searcher(searcher) {
-    command = (clipp::command("generate-input"), clipp::any_other(extraArgs));
+    command = (clipp::command("generate-input", "gi"), clipp::any_other(extraArgs));
     parser = command;
     command.doc("Generate input that leads to the current execution state");
 }

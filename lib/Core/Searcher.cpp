@@ -91,7 +91,6 @@ DbgSearcher::DbgSearcher(Searcher *s, std::set<ExecutionState *> *states) :
     lockCurrentState(false), userSelected(false) {}
 
 ExecutionState &DbgSearcher::selectState() {
-  userSelected = false;
   return *curr;
 }
 
@@ -135,7 +134,6 @@ void DbgSearcher::setStateAtAddr(unsigned int addr) {
   } else {
     curr = *it;
   }
-  userSelected = true;
   lockState();
 }
 
@@ -147,7 +145,6 @@ void DbgSearcher::nextState() {
   it++;
   if (it == states->end()) it = states->begin();
   curr = *it;
-  userSelected = true;
   lockState();
 }
 

@@ -2961,10 +2961,6 @@ void Executor::terminateStateOnError(ExecutionState &state,
     interpreterHandler->processTestCase(state, msg.str().c_str(), suffix);
     if (debugger) {
       debugger->onError();
-      if (states.find(&state) != states.end()) {
-        terminateState(state);
-      }
-      return;
     }
   }
     

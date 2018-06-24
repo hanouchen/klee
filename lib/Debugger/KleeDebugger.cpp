@@ -63,7 +63,7 @@ KDebugger::KDebugger() :
     stepi(true),
     stopUponBranching(false),
     stopOnError(false),
-    printStateOpt(PrintStateOption::DEFAULT) {}
+    printStateOpt(PrintStateOption::COMPACT) {}
 
 KDebugger::~KDebugger() {
     commands->destroy();
@@ -165,7 +165,6 @@ int KDebugger::alertBranching(bool askForSelection) {
         if (askForSelection) {
             if (printStateOpt == PrintStateOption::DEFAULT) {
                 for (int i = 0; i < 15; ++i) llvm::outs() << "-";
-                llvm::outs() << "  ";
             }
             llvm::outs() << "Enter " << ++cnt << " to select the following state ";
             for (int i = 0; i < 15; ++i) llvm::outs() << "-"; llvm::outs() << "\n";
@@ -174,7 +173,7 @@ int KDebugger::alertBranching(bool askForSelection) {
                 for (int i = 0; i < 25; ++i) llvm::outs() << "-";
                 llvm::outs() << "  ";
             }
-            llvm::outs() << "Branch " << ++cnt << "  ";
+            llvm::outs() << "State " << ++cnt << "  ";
             for (int i = 0; i < 25; ++i) llvm::outs() << "-"; llvm::outs() << "\n";
         }
         debugutil::printState(state, printStateOpt);
@@ -188,12 +187,12 @@ int KDebugger::alertBranching(bool askForSelection) {
         selectBranch(res);
         step = stepi = true;
     } else {
-        llvm::outs().changeColor(llvm::raw_ostream::CYAN);
+        // llvm::outs().changeColor(llvm::raw_ostream::CYAN);
         dbgSearcher->unlockState();
         auto state = &dbgSearcher->selectState();
         dbgSearcher->setCurrentState(state);
-        llvm::outs() << "Continuing execution from state @" << dbgSearcher->currentState() << "\n";
-        llvm::outs().changeColor(llvm::raw_ostream::WHITE);
+        // llvm::outs() << "Continuing execution from state @" << dbgSearcher->currentState() << "\n";
+        // llvm::outs().changeColor(llvm::raw_ostream::WHITE);
         executor->setHaltExecution(false);
     }
     return 0;

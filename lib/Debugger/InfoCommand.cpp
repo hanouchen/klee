@@ -16,7 +16,7 @@ namespace klee {
 
 InfoCommand::InfoCommand() {
     command = (
-        clipp::command("info").doc("Show various execution informations"),
+        clipp::command("info", "i").doc("Show various execution informations"),
         clipp::any_other(extraArgs));
 }
 
@@ -24,7 +24,7 @@ InfoBreakpointCommand::InfoBreakpointCommand(std::vector<Breakpoint> *bps) :
         breakpoints(bps), type(BreakpointType::breakpoint) {
 
     command = (
-        clipp::command("info"),
+        clipp::command("info", "i"),
         clipp::one_of(clipp::command("breakpoint").
                       set(type, BreakpointType::breakpoint),
                       clipp::command("killpoint").
@@ -62,7 +62,7 @@ void InfoBreakpointCommand::execute(CommandResult &res) {
 InfoStackCommand::InfoStackCommand(DbgSearcher *searcher) :
         searcher(searcher) {
     command = (
-        clipp::command("info"),
+        clipp::command("info", "i"),
         clipp::command("stack"),
         clipp::any_other(extraArgs)
     ).doc("Print the stack dump of current state");
@@ -80,7 +80,7 @@ void InfoStackCommand::execute(CommandResult &res) {
 InfoConstraintsCommand::InfoConstraintsCommand(DbgSearcher *searcher) :
         searcher(searcher) {
     command = (
-        clipp::command("info"),
+        clipp::command("info", "i"),
         clipp::command("constraints"),
         clipp::any_other(extraArgs)
     ).doc("Print constraints of the current state");
@@ -97,7 +97,7 @@ void InfoConstraintsCommand::execute(CommandResult &res) {
 InfoStateCommand::InfoStateCommand(DbgSearcher *searcher) :
         searcher(searcher) {
     command = (
-        clipp::command("info"),
+        clipp::command("info", "i"),
         clipp::command("state"),
         clipp::any_other(extraArgs)
     ).doc("Print information of the current state");
@@ -114,7 +114,7 @@ void InfoStateCommand::execute(CommandResult &res) {
 InfoStatesCommand::InfoStatesCommand(DbgSearcher *searcher) :
         searcher(searcher), opt(PrintStateOption::DEFAULT) {
     command = (
-        clipp::command("info"),
+        clipp::command("info", "i"),
         clipp::command("states")
     );
 
@@ -242,7 +242,7 @@ void InfoStatesCommand::displayLongList(std::vector<ExecutionState *> &states) {
 InfoStatsCommand::InfoStatsCommand(StatsTracker *statsTracker) :
         statsTracker(statsTracker) {
     command = (
-        clipp::command("info"),
+        clipp::command("info", "i"),
         clipp::command("stats"),
         clipp::any_other(extraArgs)
     ).doc("Print statistics");
